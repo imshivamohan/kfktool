@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body {
+            padding: 40px;
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .menu {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .menu a {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-right: 10px;
+            transition: background-color 0.3s;
+        }
+
+        .menu a:hover {
+            background-color: #0056b3;
+        }
+
+        .form-container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        .submit-button {
+            text-align: center;
+        }
+
+        .submit-button button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .submit-button button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Set Config Page</h1>
+        <div class="menu">
+            <a href="/">Home</a>
+            <a href="/getschema">Get Schema</a>
+            <a href="/producer">Producer</a>
+            <a href="/consumer">Consumer</a>
+            <a href="/setconfig">Set Config</a>
+            <a href="/getconfig">Get Config</a>
+        </div>
+        <div class="form-container">
+            <form action="/saveconfig" method="POST">
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <div class="form-group">
+                    <label for="api_key">API Key:</label>
+                    <input type="text" id="api_key" name="api_key" required>
+                </div>
+                <div class="form-group">
+                    <label for="api_secret">API Secret:</label>
+                    <input type="text" id="api_secret" name="api_secret" required>
+                </div>
+                <div class="form-group">
+                    <label for="schema_api_key">Schema API Key:</label>
+                    <input type="text" id="schema_api_key" name="schema_api_key" required>
+                </div>
+                <div class="form-group">
+                    <label for="schema_api_secret">Schema API Secret:</label>
+                    <input type="text" id="schema_api_secret" name="schema_api_secret" required>
+                </div>
+                <div class="form-group">
+                    <label for="schema_url">Schema URL:</label>
+                    <input type="text" id="schema_url" name="schema_url" required>
+                </div>
+                <div class="form-group">
+                    <label for="bootstrap_server">Bootstrap Server:</label>
+                    <input type="text" id="bootstrap_server" name="bootstrap_server" required>
+                </div>
+                <div class="submit-button">
+                    <button type="submit">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
