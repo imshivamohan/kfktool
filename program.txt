@@ -31,6 +31,7 @@ class Employee(object):
 
 schema_str = """{
   "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "Employee",
   "type": "object",
   "properties": {
     "name": {
