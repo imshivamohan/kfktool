@@ -1,88 +1,82 @@
-from confluent_kafka import Producer, KafkaError
+from confluent_kafka import Producer
 from confluent_kafka.serialization import SerializationContext, MessageField
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.json_schema import JSONSerializer
-import json
-import requests
 
-def fetch_latest_schema_from_registry(url, auth):
-    response = requests.get(url, auth=auth)
-    if response.status_code == 200:
-        return response.json()
+config = {
+    'bootstrap.servers': '<kafka-bootstrap-servers>',
+    'security.protocol': 'SASL_SSL',
+    'sasl.mechanism': 'PLAIN',
+    'sasl.username': '<username>',
+    'sasl.password': '<password>',
+    'ssl.ca.location': '/path/to/ca.crt',
+    'client.id': 'python-producer'
+}
+
+sr_config = {
+    'url': '<schema-registry-url>',
+    'basic.auth.user.info': '<username>:<password>'
+}
+
+class Employee(object):
+    def __init__(self, name, age):
+        self.name = name
+        self.age = age
+
+    def to_dict(self):
+        return {
+            "name": self.name,
+            "age": self.age
+        }
+
+schema_str = """{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "age": {
+      "type": "integer"
+    }
+  },
+  "required": [
+    "name",
+    "age"
+  ]
+}"""
+
+def employee_to_dict(employee, ctx):
+    return employee.to_dict()
+
+data = [
+    {"name": "John", "age": 30},
+    {"name": "Jane", "age": 25}
+]
+
+def delivery_report(err, event):
+    if err is not None:
+        print(f'Delivery failed on reading for {event.key().decode("utf8")}: {err}')
     else:
-        raise Exception(f"Failed to fetch schema from registry. Error: {response.text}")
-
-def create_objects_from_schema(schema, data):
-    class DataObject:
-        def __init__(self, **kwargs):
-            for prop in schema['properties']:
-                setattr(self, prop, kwargs.get(prop))
-
-    objects = []
-    for item in data:
-        data_object = DataObject(**item)
-        objects.append(data_object)
-
-    return objects
-
-def produce_events_with_schema(topic, schema, objects, auth, bootstrap_servers, ssl_ca_location, ssl_cert_location, ssl_key_location):
-    schema_str = json.dumps(schema)
-
-    def object_to_dict(obj, ctx):
-        return obj.__dict__
-
-    def delivery_report(err, event):
-        if err is not None:
-            print(f'Delivery failed on reading for {event.key().decode("utf8")}: {err}')
-        else:
-            print(f'Data object for {event.key().decode("utf8")} produced to {event.topic()}')
-
-    sasl_ssl_config = {
-        'bootstrap.servers': bootstrap_servers,
-        'security.protocol': 'SASL_SSL',
-        'sasl.mechanism': 'PLAIN',
-        'sasl.username': auth[0],
-        'sasl.password': auth[1],
-        'ssl.ca.location': ssl_ca_location,
-        'ssl.key.location': ssl_key_location,
-        'ssl.certificate.location': ssl_cert_location
-    }
-
-    schema_registry_config = {
-        'url': '<schema_registry_url>',
-        'basic.auth.user.info': f'{auth[0]}:{auth[1]}'
-    }
-
-    schema_registry_client = SchemaRegistryClient(schema_registry_config)
-    json_serializer = JSONSerializer(schema_str,
-                                     schema_registry_client,
-                                     object_to_dict)
-
-    producer = Producer(sasl_ssl_config)
-
-    for obj in objects:
-        producer.produce(topic=topic, key=str(getattr(obj, 'name')),
-                         value=json_serializer(obj,
-                                               SerializationContext(topic, MessageField.VALUE)),
-                         on_delivery=delivery_report)
-
-    producer.flush()
+        print(f'Temp reading for {event.key().decode("utf8")} produced to {event.topic()}')
 
 if __name__ == '__main__':
-    topic = 'data_objects'
-    schema_registry_url = '<schema_registry_url>'
-    auth = ('<username>', '<password>')  # Basic authentication credentials
-    bootstrap_servers = '<bootstrap_servers>'
-    ssl_ca_location = '<ssl_ca_location>'
-    ssl_cert_location = '<ssl_cert_location>'
-    ssl_key_location = '<ssl_key_location>'
+    topic = 'temp_readings'
+    schema_registry_client = SchemaRegistryClient(sr_config)
 
-    latest_schema = fetch_latest_schema_from_registry(schema_registry_url, auth)
-    data = [
-        {"name": "hello", "age": 33},
-        {"name": "siva", "age": 44},
-        {"name": "omg", "age": 22}
-    ]
+    json_serializer = JSONSerializer(schema_str, schema_registry_client, employee_to_dict)
 
-    objects = create_objects_from_schema(latest_schema['properties'], data)
-    produce_events_with_schema(topic, latest_schema, objects, auth, bootstrap_servers, ssl_ca_location, ssl_cert_location, ssl_key_location)
+    producer = Producer(config)
+    for employee_data in data:
+        employee = Employee(employee_data['name'], employee_data['age'])
+        producer.produce(
+            topic=topic,
+            key=str(employee.name),
+            value=json_serializer(
+                employee,
+                SerializationContext(topic, MessageField.VALUE)
+            ),
+            on_delivery=delivery_report
+        )
+
+    producer.flush()
