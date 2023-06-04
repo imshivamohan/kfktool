@@ -1,5 +1,6 @@
-from flask import Flask, render_template, request
 import csv
+import os
+from flask import Flask, render_template, request
 import requests
 import json
 
@@ -16,53 +17,105 @@ def fetch_schema(schema_url, schema_api_key, schema_api_secret, topic):
     response = requests.get(url, headers=headers)
     return response.json()
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/')
 def index():
+    return render_template('index.html')
+
+@app.route('/getschema')
+def get_schema():
+    return render_template('getschema.html')
+
+@app.route('/producer')
+def producer():
+    return render_template('producer.html')
+
+@app.route('/consumer')
+def consumer():
+    return render_template('consumer.html')
+
+@app.route('/setconfig')
+def set_config():
+    return render_template('setconfig.html')
+
+@app.route('/saveconfig', methods=['POST'])
+def save_config():
+    username = request.form['username']
+    password = request.form['password']
+    api_key = request.form['api_key']
+    api_secret = request.form['api_secret']
+    schema_api_key = request.form['schema_api_key']
+    schema_api_secret = request.form['schema_api_secret']
+    schema_url = request.form['schema_url']
+    bootstrap_server = request.form['bootstrap_server']
+
+    config_data = {
+        'Username': username,
+        'Password': password,
+        'API Key': api_key,
+        'API Secret': api_secret,
+        'Schema API Key': schema_api_key,
+        'Schema API Secret': schema_api_secret,
+        'Schema URL': schema_url,
+        'Bootstrap Server': bootstrap_server
+    }
+
+    fieldnames = list(config_data.keys())
+
+    # Remove existing config file if it exists
+    if os.path.exists('config.csv'):
+        os.remove('config.csv')
+
+    with open('config.csv', 'w', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+
+        # Write the header row
+        writer.writeheader()
+
+        # Write the config data
+        writer.writerow(config_data)
+
+    return 'Configuration saved successfully!'
+
+
+@app.route('/getconfig')
+def get_config():
+    config_data = {}
+
+    with open('config.csv', 'r') as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            config_data = row
+
+    return render_template('getconfig.html', config_data=config_data)
+
+
+@app.route('/getscm', methods=['GET', 'POST'])
+def getscm():
     if request.method == 'POST':
-        # Read CSV file and extract values
-        data = {}
-        with open('your_file.csv', 'r') as csv_file:
-            reader = csv.reader(csv_file)
+        config_data = {}
+
+        with open('config.csv', 'r') as file:
+            reader = csv.DictReader(file)
             for row in reader:
-                data[row[0]] = row[1]
+                config_data = row
 
         # Extract required values
-        username = data.get('username')
-        password = data.get('password')
-        api_key = data.get('api_key')
-        api_secret = data.get('api_secret')
-        schema_api_key = data.get('schema_api_key')
-        schema_api_secret = data.get('schema_api_secret')
-        schema_url = data.get('schema_url')
-        bootstrap_server = data.get('bootstrap_server')
+        username = config_data.get('Username')
+        password = config_data.get('Password')
+        api_key = config_data.get('API Key')
+        api_secret = config_data.get('API Secret')
+        schema_api_key = config_data.get('Schema API Key')
+        schema_api_secret = config_data.get('Schema API Secret')
+        schema_url = config_data.get('Schema URL')
+        bootstrap_server = config_data.get('Bootstrap Server')
 
         # Fetch JSON schema from Schema Registry
         topic = request.form['topic']
         response = fetch_schema(schema_url, schema_api_key, schema_api_secret, topic)
 
-        return render_template('index.html', response=json.dumps(response, indent=4))
+        return render_template('getschema.html', response=json.dumps(response, indent=4))
 
-    return render_template('index.html')
+    return render_template('getschema.html')
 
 if __name__ == '__main__':
     app.run(debug=True)
-
-
-
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Get Schema</title>
-</head>
-<body>
-    <form action="/" method="POST">
-        <label for="topic">Topic:</label>
-        <input type="text" id="topic" name="topic" required>
-        <button type="submit">Get Schema</button>
-    </form>
-
-    {% if response %}
-    <pre><code>{{ response }}</code></pre>
-    {% endif %}
-</body>
-</html>
