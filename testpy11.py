@@ -1,46 +1,17 @@
 import csv
-from flask import Flask, render_template, request, redirect, url_for
-import requests
-import json
+import os
+from flask import Flask, render_template, request
+from confluent_kafka.schema_registry import SchemaRegistryClient
+from confluent_kafka.schema_registry.json_schema import JSONSchema
 
 app = Flask(__name__)
-
-# Function to fetch the JSON schema from the Confluent Schema Registry
-def fetch_schema(schema_url, schema_api_key, schema_api_secret, topic):
-    headers = {
-        "Content-Type": "application/vnd.schemaregistry.v1+json",
-        "Accept": "application/vnd.schemaregistry.v1+json",
-        "Authorization": f"Basic {schema_api_key}:{schema_api_secret}"
-    }
-    url = f"{schema_url}/subjects/{topic}/versions/latest"
-    response = requests.get(url, headers=headers)
-    return response.json()
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@app.route('/getschema', methods=['GET', 'POST'])
+@app.route('/getschema')
 def get_schema():
-    if request.method == 'POST':
-        # Read config data from CSV file
-        config_data = {}
-        with open('config.csv', 'r') as file:
-            reader = csv.DictReader(file)
-            for row in reader:
-                config_data = row
-
-        # Extract required values
-        schema_api_key = config_data.get('Schema API Key')
-        schema_api_secret = config_data.get('Schema API Secret')
-        schema_url = config_data.get('Schema URL')
-        topic = request.form['topic']
-
-        # Fetch JSON schema from Schema Registry
-        response = fetch_schema(schema_url, schema_api_key, schema_api_secret, topic)
-
-        return render_template('getschema.html', response=json.dumps(response, indent=4))
-
     return render_template('getschema.html')
 
 @app.route('/producer')
@@ -79,13 +50,20 @@ def save_config():
 
     fieldnames = list(config_data.keys())
 
+    # Remove existing config file if it exists
+    if os.path.exists('config.csv'):
+        os.remove('config.csv')
+
     with open('config.csv', 'w', newline='') as file:
         writer = csv.DictWriter(file, fieldnames=fieldnames)
+
+        # Write the header row
         writer.writeheader()
+
+        # Write the config data
         writer.writerow(config_data)
 
-    return redirect(url_for('get_config', message='Configuration saved successfully!'))
-
+    return 'Configuration saved successfully!'
 
 
 @app.route('/getconfig')
@@ -98,6 +76,43 @@ def get_config():
             config_data = row
 
     return render_template('getconfig.html', config_data=config_data)
+
+def get_json_schema(api_key, api_secret, schema_url, topic):
+    # Create the Schema Registry client
+    conf = {
+        'schema.registry.url': schema_url,
+        'basic.auth.user.info': f'{api_key}:{api_secret}'
+    }
+    sr_client = SchemaRegistryClient(conf)
+
+    # Retrieve the latest version of the schema for the specified topic
+    schema = sr_client.get_latest_version(topic)
+
+    # Parse the JSON schema
+    json_schema = JSONSchema(schema.schema_str)
+
+    return json_schema.to_json()
+
+# Load data inputs from the CSV file
+def load_data_from_csv(file_path):
+    data = []
+    with open(file_path, 'r') as file:
+        reader = csv.reader(file)
+        for row in reader:
+            data.append(row)
+    return data
+# Example usage
+csv_file_path = 'config.csv'
+
+data = load_data_from_csv(csv_file_path)
+schema_api_key = data[0][0]
+schema_api_secret = data[0][1]
+schema_url = data[0][2]
+topic = data[0][3]
+
+json_schema = get_json_schema(schema_api_key, schema_api_secret, schema_url, topic)
+print(json_schema)
+
 
 if __name__ == '__main__':
     app.run(debug=True)
