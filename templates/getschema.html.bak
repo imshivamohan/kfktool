@@ -97,19 +97,7 @@
             <a href="/getconfig">Get Config</a>
         </div>
         <div class="form-container">
-            <form action="/" method="POST">
-                <div class="form-group">
-                    <label for="topic">Topic:</label>
-                    <input type="text" id="topic" name="topic" required>
-                </div>
-                <div class="submit-button">
-                    <button type="submit">Get Schema</button>
-                </div>
-            </form>
-
-            {% if response %}
-            <pre><code>{{ response }}</code></pre>
-            {% endif %}
+            <!-- Add your content for the Get Schema page here -->
         </div>
     </div>
 </body>
