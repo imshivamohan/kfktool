@@ -1,25 +1,47 @@
-import requests
-
-def fetch_schema(schema_url, schema_api_key, schema_api_secret, topic):
-    auth = (schema_api_key, schema_api_secret)
-    url = f"{schema_url}/subjects/{topic}-value/versions/latest"
-    headers = {
-        "Content-Type": "application/vnd.schemaregistry.v1+json",
-        "Accept": "application/vnd.schemaregistry.v1+json"
-    }
-
-    response = requests.get(url, headers=headers, auth=auth)
-    response.raise_for_status()
-
-    return response.json()
-
-
-
-
-schema_url = "https://schema-registry.example.com"
-schema_api_key = "your-schema-api-key"
-schema_api_secret = "your-schema-api-secret"
-topic = "your-topic-name"
-
-schema = fetch_schema(schema_url, schema_api_key, schema_api_secret, topic)
-print(schema)
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* Add your CSS styling for the code block here */
+        pre {
+            padding: 10px;
+            background-color: #f7f7f7;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: Consolas, monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Get Schema Page</h1>
+        <div class="menu">
+            <a href="/">Home</a>
+            <a href="/getschema">Get Schema</a>
+            <a href="/producer">Producer</a>
+            <a href="/consumer">Consumer</a>
+            <a href="/setconfig">Set Config</a>
+            <a href="/getconfig">Get Config</a>
+        </div>
+        <div class="form-container">
+            <h2>Get Schema</h2>
+            <form action="/getscm" method="post">
+                <div class="form-group">
+                    <label for="topic">Topic:</label>
+                    <input type="text" id="topic" name="topic" required>
+                </div>
+                <div class="submit-button">
+                    <button type="submit">Get Schema</button>
+                </div>
+            </form>
+            {% if schema %}
+            <h3>Schema:</h3>
+            <pre>{{ schema }}</pre>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
