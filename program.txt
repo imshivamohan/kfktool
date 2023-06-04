@@ -1,46 +1,114 @@
+from flask import Flask, request, render_template
+from confluent_kafka import KafkaException, KafkaError, SerializingProducer
+from confluent_kafka.serialization import StringSerializer, JsonSerializer
+from jsonschema import validate, exceptions
+import requests
+import base64
+
+app = Flask(__name__)
+
+# Kafka configuration
+kafka_bootstrap_servers = 'localhost:9092'
+topic_name = 'your_topic_name'
+
+# Schema Registry URL for retrieving JSON schema
+schema_registry_url = 'http://localhost:8081'
+schema_registry_schema_url = schema_registry_url + '/subjects/' + topic_name + '-value/versions/latest'
+
+# Schema Registry API key and secret
+schema_registry_api_key = 'your_api_key'
+schema_registry_api_secret = 'your_api_secret'
+
+# Kafka cluster authentication
+kafka_api_key = 'your_kafka_api_key'
+kafka_api_secret = 'your_kafka_api_secret'
+
+
+# Initialize JSON producer
+json_producer = SerializingProducer({
+    'bootstrap.servers': kafka_bootstrap_servers,
+    'key.serializer': StringSerializer('utf_8'),
+    'value.serializer': JsonSerializer(),
+    'security.protocol': 'sasl_ssl',
+    'ssl.ca.location': '/path/to/ca.crt',  # Replace with the path to your CA certificate
+    'sasl.mechanism': 'PLAIN',
+    'sasl.username': kafka_api_key,
+    'sasl.password': kafka_api_secret
+})
+
+
+# Retrieve JSON schema from Schema Registry
+def retrieve_json_schema():
+    headers = {
+        'Content-Type': 'application/vnd.schemaregistry.v1+json',
+        'Authorization': 'Basic ' + base64.b64encode(
+            (schema_registry_api_key + ':' + schema_registry_api_secret).encode('utf-8')).decode('utf-8')
+    }
+
+    response = requests.get(schema_registry_schema_url, headers=headers)
+    if response.status_code == 200:
+        return response.json()['schema']
+    else:
+        return None
+
+
+# Handle the index page
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    if request.method == 'POST':
+        json_data = request.form['json_input']
+        if validate_json_data(json_data):
+            produce_message(json_data)
+            return "Message sent successfully!"
+        else:
+            return "Invalid JSON data. Please check the input."
+    return render_template('index.html')
+
+
+# Validate JSON data against the JSON schema
+def validate_json_data(json_data):
+    schema = retrieve_json_schema()
+    if schema:
+        try:
+            validate(instance=json_data, schema=schema)
+            return True
+        except exceptions.ValidationError:
+            return False
+    else:
+        return False
+
+
+# Produce a message to Kafka
+def produce_message(json_data):
+    try:
+        # Produce the JSON event to Kafka
+        json_producer.produce(topic=topic_name, value=json_data)
+        json_producer.flush()
+    except KafkaException as e:
+        print(f"Failed to send message: {e}")
+    except KafkaError as e:
+        print(f"Kafka error: {e}")
+
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+
+
+
+
 <!DOCTYPE html>
 <html>
 <head>
-    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
-    <style>
-        /* Add your CSS styling for the code block here */
-        pre {
-            padding: 10px;
-            background-color: #f7f7f7;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-family: Consolas, monospace;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-        }
-    </style>
+    <title>JSON Producer</title>
 </head>
 <body>
-    <div class="container">
-        <h1>Get Schema Page</h1>
-        <div class="menu">
-            <a href="/">Home</a>
-            <a href="/getschema">Get Schema</a>
-            <a href="/producer">Producer</a>
-            <a href="/consumer">Consumer</a>
-            <a href="/setconfig">Set Config</a>
-            <a href="/getconfig">Get Config</a>
-        </div>
-        <div class="form-container">
-            <form action="/getschema" method="POST">
-                <div class="form-group">
-                    <label for="topic">Topic:</label>
-                    <input type="text" id="topic" name="topic" required>
-                </div>
-                <div class="submit-button">
-                    <button type="submit">Get Schema</button>
-                </div>
-            </form>
+    <h1>JSON Producer</h1>
 
-            {% if response %}
-            <pre><code>{{ response }}</code></pre>
-            {% endif %}
-        </div>
-    </div>
+    <form action="/" method="POST">
+        <label for="json_input">Enter JSON Data:</label><br>
+        <textarea id="json_input" name="json_input" rows="5" cols="50"></textarea><br>
+        <input type="submit" value="Produce Message">
+    </form>
 </body>
 </html>
