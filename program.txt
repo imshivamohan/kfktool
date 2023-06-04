@@ -1,9 +1,7 @@
-from confluent_kafka import Producer
+from confluent_kafka import Producer, KafkaError
 from confluent_kafka.serialization import SerializationContext, MessageField
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.json_schema import JSONSerializer
-from config import config
-import time
 import json
 import requests
 
@@ -27,7 +25,7 @@ def create_objects_from_schema(schema, data):
 
     return objects
 
-def produce_events_with_schema(topic, schema, objects, auth):
+def produce_events_with_schema(topic, schema, objects, auth, bootstrap_servers, ssl_ca_location, ssl_cert_location, ssl_key_location):
     schema_str = json.dumps(schema)
 
     def object_to_dict(obj, ctx):
@@ -39,19 +37,28 @@ def produce_events_with_schema(topic, schema, objects, auth):
         else:
             print(f'Data object for {event.key().decode("utf8")} produced to {event.topic()}')
 
-    schema_registry_client = SchemaRegistryClient(url=config['schema.registry.url'],
-                                                  basic_auth_user_info=config['schema.registry.basic.auth.user.info'],
-                                                  schema_registry_properties={'ssl.key.location': config['ssl.key.location'],
-                                                                              'ssl.certificate.location': config['ssl.certificate.location'],
-                                                                              'ssl.ca.location': config['ssl.ca.location'],
-                                                                              'sasl.mechanisms': 'PLAIN',
-                                                                              'sasl.username': auth[0],
-                                                                              'sasl.password': auth[1]})
+    sasl_ssl_config = {
+        'bootstrap.servers': bootstrap_servers,
+        'security.protocol': 'SASL_SSL',
+        'sasl.mechanism': 'PLAIN',
+        'sasl.username': auth[0],
+        'sasl.password': auth[1],
+        'ssl.ca.location': ssl_ca_location,
+        'ssl.key.location': ssl_key_location,
+        'ssl.certificate.location': ssl_cert_location
+    }
+
+    schema_registry_config = {
+        'url': '<schema_registry_url>',
+        'basic.auth.user.info': f'{auth[0]}:{auth[1]}'
+    }
+
+    schema_registry_client = SchemaRegistryClient(schema_registry_config)
     json_serializer = JSONSerializer(schema_str,
                                      schema_registry_client,
                                      object_to_dict)
 
-    producer = Producer(config)
+    producer = Producer(sasl_ssl_config)
 
     for obj in objects:
         producer.produce(topic=topic, key=str(getattr(obj, 'name')),
@@ -65,6 +72,11 @@ if __name__ == '__main__':
     topic = 'data_objects'
     schema_registry_url = '<schema_registry_url>'
     auth = ('<username>', '<password>')  # Basic authentication credentials
+    bootstrap_servers = '<bootstrap_servers>'
+    ssl_ca_location = '<ssl_ca_location>'
+    ssl_cert_location = '<ssl_cert_location>'
+    ssl_key_location = '<ssl_key_location>'
+
     latest_schema = fetch_latest_schema_from_registry(schema_registry_url, auth)
     data = [
         {"name": "hello", "age": 33},
@@ -73,4 +85,4 @@ if __name__ == '__main__':
     ]
 
     objects = create_objects_from_schema(latest_schema['properties'], data)
-    produce_events_with_schema(topic, latest_schema, objects, auth)
+    produce_events_with_schema(topic, latest_schema, objects, auth, bootstrap_servers, ssl_ca_location, ssl_cert_location, ssl_key_location)
