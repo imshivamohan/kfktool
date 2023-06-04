@@ -1,19 +1,33 @@
-from kafka import KafkaProducer
-from confluent_kafka import SerializingProducer
-from confluent_kafka.serialization import StringSerializer
-from confluent_kafka.schema_registry import SchemaRegistryClient, schema
+from confluent_kafka import Producer, KafkaException
+from confluent_kafka.schema_registry import SchemaRegistryClient
+import json
 
 # Set your Kafka broker URL
 bootstrap_servers = 'your_kafka_broker_url:9093'
 
-# Set the SASL username and password
-sasl_username = 'apikey'
-sasl_password = 'apipass'
+# Set the SASL username and password for Kafka
+sasl_username = 'kafka_apikey'
+sasl_password = 'kafka_apipass'
 
-# Set the topic name
-topic_name = 'hellokafkatopic'
+# Set the Schema Registry URL
+schema_registry_url = 'http://your_schema_registry_url'
 
-# Create the Kafka producer configuration
+# Set the API key and password for Schema Registry
+schema_registry_api_key = 'schema_apikey'
+schema_registry_api_secret = 'schema_apipass'
+
+# Create the Schema Registry client with basic authentication
+schema_registry_client = SchemaRegistryClient({
+    'url': schema_registry_url,
+    'basic.auth.credentials.source': 'USER_INFO',
+    'basic.auth.user.info': f'{schema_registry_api_key}:{schema_registry_api_secret}'
+})
+
+# Retrieve the latest schema for the topic value from the Schema Registry
+subject_name = topic_name + '-value'
+latest_schema = schema_registry_client.get_latest_version(subject_name)
+
+# Create the Kafka producer configuration with SASL and SSL
 producer_config = {
     'bootstrap.servers': bootstrap_servers,
     'security.protocol': 'SASL_SSL',
@@ -24,39 +38,33 @@ producer_config = {
     'sasl.username': sasl_username,
     'sasl.password': sasl_password,
     'key.serializer': 'org.apache.kafka.common.serialization.StringSerializer',
-    'value.serializer': 'io.confluent.kafka.serializers.json.KafkaJsonSchemaSerializer'
+    'value.serializer': 'io.confluent.kafka.serializers.KafkaAvroSerializer',
+    'schema.registry.url': schema_registry_url,
+    'schema.registry.basic.auth.user.info': f'{schema_registry_api_key}:{schema_registry_api_secret}'
 }
 
 # Create the Kafka producer instance
-producer = KafkaProducer(**producer_config)
-
-# Create the schema registry client
-schema_registry_client = SchemaRegistryClient({'url': 'http://your_schema_registry_url'})
-
-# Define the JSON schema for your event
-json_schema = """
-{
-  "type": "object",
-  "properties": {
-    "field1": {"type": "string"},
-    "field2": {"type": "integer"}
-  }
-}
-"""
-
-# Register the JSON schema with the schema registry
-subject_name = topic_name + '-value'
-schema_registry_client.register(subject_name, schema.AvroSchema(json_schema))
+producer = Producer(producer_config)
 
 # Define your JSON event
 json_event = {
-    "field1": "value1",
-    "field2": 123
+    "key": "your_key",
+    "value": {
+        "field1": "value1",
+        "field2": 123
+    }
 }
 
-# Send the JSON event to the Kafka topic
-producer.send(topic_name, key='your_key', value=json_event)
+# Serialize the JSON event using the latest schema from the Schema Registry
+serialized_event = schema_registry_client.serialize_record_with_schema(latest_schema, json_event)
 
-# Flush and close the producer
-producer.flush()
+# Send the JSON event to the Kafka topic
+try:
+    producer.produce(topic=topic_name, key='your_key', value=serialized_event)
+    producer.flush()
+    print("Event sent successfully.")
+except KafkaException as e:
+    print(f"Failed to send event: {str(e)}")
+
+# Close the producer
 producer.close()
