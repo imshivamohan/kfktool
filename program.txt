@@ -1,7 +1,9 @@
 import csv
-import os
+from flask import Flask, render_template, request
 import requests
 import json
+
+app = Flask(__name__)
 
 # Function to fetch the JSON schema from the Confluent Schema Registry
 def fetch_schema(schema_url, schema_api_key, schema_api_secret, topic):
@@ -14,24 +16,78 @@ def fetch_schema(schema_url, schema_api_key, schema_api_secret, topic):
     response = requests.get(url, headers=headers)
     return response.json()
 
-def save_config(config_data):
-    fieldnames = list(config_data.keys())
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-    # Remove existing config file if it exists
-    if os.path.exists('config.csv'):
-        os.remove('config.csv')
+@app.route('/getschema', methods=['GET', 'POST'])
+def get_schema():
+    if request.method == 'POST':
+        # Read config data from CSV file
+        config_data = {}
+        with open('config.csv', 'r') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                config_data = row
+
+        # Extract required values
+        schema_api_key = config_data.get('Schema API Key')
+        schema_api_secret = config_data.get('Schema API Secret')
+        schema_url = config_data.get('Schema URL')
+        topic = request.form['topic']
+
+        # Fetch JSON schema from Schema Registry
+        response = fetch_schema(schema_url, schema_api_key, schema_api_secret, topic)
+
+        return render_template('getschema.html', response=json.dumps(response, indent=4))
+
+    return render_template('getschema.html')
+
+@app.route('/producer')
+def producer():
+    return render_template('producer.html')
+
+@app.route('/consumer')
+def consumer():
+    return render_template('consumer.html')
+
+@app.route('/setconfig')
+def set_config():
+    return render_template('setconfig.html')
+
+@app.route('/saveconfig', methods=['POST'])
+def save_config():
+    username = request.form['username']
+    password = request.form['password']
+    api_key = request.form['api_key']
+    api_secret = request.form['api_secret']
+    schema_api_key = request.form['schema_api_key']
+    schema_api_secret = request.form['schema_api_secret']
+    schema_url = request.form['schema_url']
+    bootstrap_server = request.form['bootstrap_server']
+
+    config_data = {
+        'Username': username,
+        'Password': password,
+        'API Key': api_key,
+        'API Secret': api_secret,
+        'Schema API Key': schema_api_key,
+        'Schema API Secret': schema_api_secret,
+        'Schema URL': schema_url,
+        'Bootstrap Server': bootstrap_server
+    }
+
+    fieldnames = list(config_data.keys())
 
     with open('config.csv', 'w', newline='') as file:
         writer = csv.DictWriter(file, fieldnames=fieldnames)
-
-        # Write the header row
         writer.writeheader()
-
-        # Write the config data
         writer.writerow(config_data)
 
     return 'Configuration saved successfully!'
 
+
+@app.route('/getconfig')
 def get_config():
     config_data = {}
 
@@ -40,45 +96,7 @@ def get_config():
         for row in reader:
             config_data = row
 
-    return config_data
+    return render_template('getconfig.html', config_data=config_data)
 
-def get_schema(topic):
-    config_data = get_config()
-
-    # Extract required values
-    username = config_data.get('Username')
-    password = config_data.get('Password')
-    api_key = config_data.get('API Key')
-    api_secret = config_data.get('API Secret')
-    schema_api_key = config_data.get('Schema API Key')
-    schema_api_secret = config_data.get('Schema API Secret')
-    schema_url = config_data.get('Schema URL')
-    bootstrap_server = config_data.get('Bootstrap Server')
-
-    # Fetch JSON schema from Schema Registry
-    response = fetch_schema(schema_url, schema_api_key, schema_api_secret, topic)
-    return response
-
-# Example usage
-
-# Save configuration
-config_data = {
-    'Username': 'your_username',
-    'Password': 'your_password',
-    'API Key': 'your_api_key',
-    'API Secret': 'your_api_secret',
-    'Schema API Key': 'your_schema_api_key',
-    'Schema API Secret': 'your_schema_api_secret',
-    'Schema URL': 'your_schema_url',
-    'Bootstrap Server': 'your_bootstrap_server'
-}
-save_config(config_data)
-
-# Get configuration
-config_data = get_config()
-print(config_data)
-
-# Get schema for a topic
-topic = 'your_topic'
-schema = get_schema(topic)
-print(schema)
+if __name__ == '__main__':
+    app.run(debug=True)
