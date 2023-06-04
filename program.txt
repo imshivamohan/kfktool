@@ -1,0 +1,68 @@
+from flask import Flask, render_template, request
+import csv
+import requests
+import json
+
+app = Flask(__name__)
+
+# Function to fetch the JSON schema from the Confluent Schema Registry
+def fetch_schema(schema_url, schema_api_key, schema_api_secret, topic):
+    headers = {
+        "Content-Type": "application/vnd.schemaregistry.v1+json",
+        "Accept": "application/vnd.schemaregistry.v1+json",
+        "Authorization": f"Basic {schema_api_key}:{schema_api_secret}"
+    }
+    url = f"{schema_url}/subjects/{topic}/versions/latest"
+    response = requests.get(url, headers=headers)
+    return response.json()
+
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    if request.method == 'POST':
+        # Read CSV file and extract values
+        data = {}
+        with open('your_file.csv', 'r') as csv_file:
+            reader = csv.reader(csv_file)
+            for row in reader:
+                data[row[0]] = row[1]
+
+        # Extract required values
+        username = data.get('username')
+        password = data.get('password')
+        api_key = data.get('api_key')
+        api_secret = data.get('api_secret')
+        schema_api_key = data.get('schema_api_key')
+        schema_api_secret = data.get('schema_api_secret')
+        schema_url = data.get('schema_url')
+        bootstrap_server = data.get('bootstrap_server')
+
+        # Fetch JSON schema from Schema Registry
+        topic = request.form['topic']
+        response = fetch_schema(schema_url, schema_api_key, schema_api_secret, topic)
+
+        return render_template('index.html', response=json.dumps(response, indent=4))
+
+    return render_template('index.html')
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Get Schema</title>
+</head>
+<body>
+    <form action="/" method="POST">
+        <label for="topic">Topic:</label>
+        <input type="text" id="topic" name="topic" required>
+        <button type="submit">Get Schema</button>
+    </form>
+
+    {% if response %}
+    <pre><code>{{ response }}</code></pre>
+    {% endif %}
+</body>
+</html>
