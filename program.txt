@@ -1,8 +1,62 @@
-    except KafkaError as e:
-        if e.code() == KafkaError.VALUE_SERIALIZATION:
-            print("Kafka value serialization error:")
-            print(f"Error code: {e.code()}")
-            print(f"Error value: {e.value()}")
-            print(f"Error string: {e.str()}")
-        else:
-            print(f"Kafka error: {e}")
+from kafka import KafkaProducer
+from confluent_kafka import SerializingProducer
+from confluent_kafka.serialization import StringSerializer
+from confluent_kafka.schema_registry import SchemaRegistryClient, schema
+
+# Set your Kafka broker URL
+bootstrap_servers = 'your_kafka_broker_url:9093'
+
+# Set the SASL username and password
+sasl_username = 'apikey'
+sasl_password = 'apipass'
+
+# Set the topic name
+topic_name = 'hellokafkatopic'
+
+# Create the Kafka producer configuration
+producer_config = {
+    'bootstrap.servers': bootstrap_servers,
+    'security.protocol': 'SASL_SSL',
+    'ssl.ca.location': '/path/to/ca.crt',  # Path to your CA certificate file
+    'ssl.key.location': '/path/to/client.key',  # Path to your client key file
+    'ssl.certificate.location': '/path/to/client.crt',  # Path to your client certificate file
+    'sasl.mechanism': 'PLAIN',
+    'sasl.username': sasl_username,
+    'sasl.password': sasl_password,
+    'key.serializer': 'org.apache.kafka.common.serialization.StringSerializer',
+    'value.serializer': 'io.confluent.kafka.serializers.json.KafkaJsonSchemaSerializer'
+}
+
+# Create the Kafka producer instance
+producer = KafkaProducer(**producer_config)
+
+# Create the schema registry client
+schema_registry_client = SchemaRegistryClient({'url': 'http://your_schema_registry_url'})
+
+# Define the JSON schema for your event
+json_schema = """
+{
+  "type": "object",
+  "properties": {
+    "field1": {"type": "string"},
+    "field2": {"type": "integer"}
+  }
+}
+"""
+
+# Register the JSON schema with the schema registry
+subject_name = topic_name + '-value'
+schema_registry_client.register(subject_name, schema.AvroSchema(json_schema))
+
+# Define your JSON event
+json_event = {
+    "field1": "value1",
+    "field2": 123
+}
+
+# Send the JSON event to the Kafka topic
+producer.send(topic_name, key='your_key', value=json_event)
+
+# Flush and close the producer
+producer.flush()
+producer.close()
