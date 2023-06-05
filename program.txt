@@ -2,44 +2,9 @@ from confluent_kafka import Producer
 from confluent_kafka.serialization import SerializationContext, MessageField
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.json_schema import JSONSerializer
+import json
+import types
 
-def create_dynamic_class(schema):
-    class_dict = {}
-    exec(f"class DynamicClass:\n    def __init__(self, {', '.join(schema['properties'].keys())}):\n        {'; '.join([f'self.{prop} = {prop}' for prop in schema['properties']])}", class_dict)
-    return class_dict['DynamicClass']
-
-def dynamicClass_to_dict(dynamic_class):
-    return dynamic_class.__dict__
-
-def delivery_report(err, event):
-    if err is not None:
-        print('Delivery failed on reading for {}: {}'.format(event.key().decode("utf8"), err))
-    else:
-        print('Temp reading for {} produced to {}'.format(event.key().decode("utf8"), event.topic()))
-
-# JSON schema as a string
-schema_str = '''
-{
-  "title": "Employee",
-  "type": "object",
-  "properties": {
-    "name": {"type": "string"},
-    "age": {"type": "integer"}
-  },
-  "required": ["name", "age"]
-}
-'''
-
-# Dynamic Dictionary Data
-dynamic_dictionary_data = [
-    {"name": "John", "age": 30},
-    {"name": "Jane", "age": 25}
-]
-
-# Generate dynamic class
-DynamicClass = create_dynamic_class(schema)
-
-# Kafka producer configuration
 config = {
     'bootstrap.servers': '<kafka-bootstrap-servers>',
     'security.protocol': 'SASL_SSL',
@@ -50,32 +15,69 @@ config = {
     'client.id': 'python-producer'
 }
 
-# Schema Registry configuration
 sr_config = {
     'url': '<schema-registry-url>',
     'basic.auth.user.info': '<username>:<password>'
 }
 
-# Create Schema Registry client and JSON serializer
-schema_registry_client = SchemaRegistryClient(sr_config)
-json_serializer = JSONSerializer(schema_str, schema_registry_client, dynamicClass_to_dict)
+schema_str = """
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "Employee",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "age": {
+      "type": "integer"
+    }
+  },
+  "required": [
+    "name",
+    "age"
+  ]
+}
+"""
 
-# Kafka producer setup
-producer = Producer(config)
-topic = 'temp_readings'
+data = [
+    {"name": "John", "age": 30},
+    {"name": "Jane", "age": 25}
+]
 
-# Produce messages
-for dynamic_data in dynamic_dictionary_data:
-    dynamic_object = DynamicClass(**dynamic_data)
-    producer.produce(
-        topic=topic,
-        key=str(dynamic_object.name),
-        value=json_serializer(
-            dynamic_object,
-            SerializationContext(topic, MessageField.VALUE)
-        ),
-        on_delivery=delivery_report
-    )
+def delivery_report(err, event):
+    if err is not None:
+        print(f'Delivery failed on reading for {event.key().decode("utf8")}: {err}')
+    else:
+        print(f'Temp reading for {event.key().decode("utf8")} produced to {event.topic()}')
 
-# Flush producer
-producer.flush()
+if __name__ == '__main__':
+    topic = 'temp_readings'
+
+    schema = json.loads(schema_str)
+
+    # Dynamically create the class based on the JSON schema
+    cls_dict = {}
+    for prop, prop_schema in schema.get('properties', {}).items():
+        cls_dict[prop] = types.new_class(prop, (object,), {'__annotations__': {prop: prop_schema['type']}})
+
+    Employee = types.new_class('Employee', (object,), cls_dict)
+
+    schema_registry_client = SchemaRegistryClient(sr_config)
+
+    json_serializer = JSONSerializer(schema_str, schema_registry_client, Employee.to_dict)
+
+    producer = Producer(config)
+    for employee_data in data:
+        employee = Employee(**employee_data)
+        producer.produce(
+            topic=topic,
+            key=str(employee.name),
+            value=json_serializer(
+                employee,
+                SerializationContext(topic, MessageField.VALUE)
+            ),
+            on_delivery=delivery_report
+        )
+
+    producer.flush()
