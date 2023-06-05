@@ -1,83 +1,111 @@
-from confluent_kafka import Producer
-from confluent_kafka.serialization import SerializationContext, MessageField
-from confluent_kafka.schema_registry import SchemaRegistryClient
-from confluent_kafka.schema_registry.json_schema import JSONSerializer
-import json
-import types
+from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required
+from flask_session import Session
+from threading import Lock
+import subprocess
 
-config = {
-    'bootstrap.servers': '<kafka-bootstrap-servers>',
-    'security.protocol': 'SASL_SSL',
-    'sasl.mechanism': 'PLAIN',
-    'sasl.username': '<username>',
-    'sasl.password': '<password>',
-    'ssl.ca.location': '/path/to/ca.crt',
-    'client.id': 'python-producer'
-}
+app = Flask(__name__)
+app.config['SECRET_KEY'] = 'your-secret-key'
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_PERMANENT'] = False
 
-sr_config = {
-    'url': '<schema-registry-url>',
-    'basic.auth.user.info': '<username>:<password>'
-}
+# Configure session
+Session(app)
 
-schema_str = """
-{
-  "$schema": "http://json-schema.org/draft-04/schema#",
-  "title": "Employee",
-  "type": "object",
-  "properties": {
-    "name": {
-      "type": "string"
-    },
-    "age": {
-      "type": "integer"
-    }
-  },
-  "required": [
-    "name",
-    "age"
-  ]
-}
-"""
+# Configure login manager
+login_manager = LoginManager()
+login_manager.init_app(app)
 
-data = [
-    {"name": "John", "age": 30},
-    {"name": "Jane", "age": 25}
-]
+# Create a lock object to ensure thread safety
+lock = Lock()
 
-def delivery_report(err, event):
-    if err is not None:
-        print(f'Delivery failed on reading for {event.key().decode("utf8")}: {err}')
-    else:
-        print(f'Temp reading for {event.key().decode("utf8")} produced to {event.topic()}')
+# User class for authentication
+class User(UserMixin):
+    def __init__(self, username, password):
+        self.id = username
+        self.password = password
+
+    @staticmethod
+    def get(user_id):
+        # Replace with your logic to retrieve user from database or storage
+        users = {'admin': User('admin', 'admin')}
+        return users.get(user_id)
+
+# User registration (Replace with your logic to store user in database or storage)
+def register_user(username, password):
+    # Store user in memory for simplicity
+    user = User(username, password)
+    users[user.id] = user
+
+# User login (Replace with your logic to authenticate user against database or storage)
+def authenticate_user(username, password):
+    user = User.get(username)
+    if user and user.password == password:
+        return user
+
+# Load user for login manager
+@login_manager.user_loader
+def load_user(user_id):
+    return User.get(user_id)
+
+@app.route('/')
+def home():
+    return render_template('index.html')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        register_user(username, password)
+        flash('Registration successful! Please login.')
+        return redirect(url_for('login'))
+    return render_template('register.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        user = authenticate_user(username, password)
+        if user:
+            login_user(user)
+            flash('Login successful!')
+            return redirect(url_for('dashboard'))
+        else:
+            flash('Invalid username or password.')
+    return render_template('login.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('Logout successful!')
+    return redirect(url_for('login'))
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    return render_template('dashboard.html')
+
+@app.route('/producer', methods=['POST'])
+@login_required
+def producer():
+    message = request.form['message']
+    # Replace with your logic to retrieve user-specific configuration
+    sapikey, sapipass, _, _, _, tname, scur = get_user_config()
+    with lock:
+        subprocess.call(['confluent-7.0.1/bin/kafka-json-schema-console-producer', '--broker-list', 'localhost:9092', '--topic', f'{tname}', '--producer.config', 'client.properties', '--property', f'value.schema.id={scid}', '--property', f'schema.registry.url={scur}', '--property', 'basic.auth.credentials.source=USER_INFO', '--property', f'schema.registry.basic.auth.user.info={sapikey}:{sapipass}', '--property', 'key.serializer=org.apache.kafka.common.serialization.StringSerializer', '--property', 'value.serializer=io.confluent.kafka.serializers.json.KafkaJsonSchemaSerializer'], input=message.encode())
+    return 'Message sent to Kafka topic successfully.'
+
+@app.route('/consumer')
+@login_required
+def consumer():
+    # Replace with your logic to retrieve user-specific configuration
+    sapikey, sapipass, _, _, cgid, tname, scur = get_user_config()
+    with lock:
+        subprocess.call(['confluent-7.0.1/bin/kafka-json-schema-console-consumer', '--bootstrap-server', 'localhost:9092', '--topic', f'{tname}', '--consumer.config', 'client.properties', '--property', f'value.schema.id={scid}', '--property', f'schema.registry.url={scur}', '--property', 'basic.auth.credentials.source=USER_INFO', '--property', f'schema.registry.basic.auth.user.info={sapikey}:{sapipass}', '--property', 'key.deserializer=org.apache.kafka.common.serialization.StringDeserializer', '--property', 'value.deserializer=io.confluent.kafka.serializers.json.KafkaJsonSchemaDeserializer', '--group', f'{cgid}'])
+    return 'Consumer started.'
 
 if __name__ == '__main__':
-    topic = 'temp_readings'
-
-    schema = json.loads(schema_str)
-
-    # Dynamically create the class based on the JSON schema
-    cls_dict = {}
-    for prop, prop_schema in schema.get('properties', {}).items():
-        cls_dict[prop] = types.new_class(prop, (object,), {'__annotations__': {prop: prop_schema['type']}})
-
-    Employee = types.new_class('Employee', (object,), cls_dict)
-
-    schema_registry_client = SchemaRegistryClient(sr_config)
-
-    json_serializer = JSONSerializer(schema_str, schema_registry_client, Employee.to_dict)
-
-    producer = Producer(config)
-    for employee_data in data:
-        employee = Employee(**employee_data)
-        producer.produce(
-            topic=topic,
-            key=str(employee.name),
-            value=json_serializer(
-                employee,
-                SerializationContext(topic, MessageField.VALUE)
-            ),
-            on_delivery=delivery_report
-        )
-
-    producer.flush()
+    app.run(debug=True)
