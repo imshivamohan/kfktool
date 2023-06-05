@@ -1,12 +1,11 @@
 from confluent_kafka import Producer
 from confluent_kafka.serialization import SerializationContext, MessageField
 from confluent_kafka.schema_registry import SchemaRegistryClient
-from confluent_kafka.schema_registry.avro import AvroSerializer
-from avro.schema import Parse
+from confluent_kafka.schema_registry.json_schema import JSONSerializer
 
 def create_dynamic_class(schema):
     class_dict = {}
-    exec(f"class DynamicClass:\n    def __init__(self, {', '.join(schema['fields'].keys())}):\n        {'; '.join([f'self.{field} = {field}' for field in schema['fields']])}", class_dict)
+    exec(f"class DynamicClass:\n    def __init__(self, {', '.join(schema['properties'].keys())}):\n        {'; '.join([f'self.{prop} = {prop}' for prop in schema['properties']])}", class_dict)
     return class_dict['DynamicClass']
 
 def dynamicClass_to_dict(dynamic_class):
@@ -18,15 +17,16 @@ def delivery_report(err, event):
     else:
         print('Temp reading for {} produced to {}'.format(event.key().decode("utf8"), event.topic()))
 
-# Input JSON schema
+# JSON schema as a string
 schema_str = '''
 {
-  "type": "record",
-  "name": "Employee",
-  "fields": [
-    {"name": "name", "type": "string"},
-    {"name": "age", "type": "int"}
-  ]
+  "title": "Employee",
+  "type": "object",
+  "properties": {
+    "name": {"type": "string"},
+    "age": {"type": "integer"}
+  },
+  "required": ["name", "age"]
 }
 '''
 
@@ -35,9 +35,6 @@ dynamic_dictionary_data = [
     {"name": "John", "age": 30},
     {"name": "Jane", "age": 25}
 ]
-
-# Parse the JSON schema
-schema = Parse(schema_str)
 
 # Generate dynamic class
 DynamicClass = create_dynamic_class(schema)
@@ -59,9 +56,9 @@ sr_config = {
     'basic.auth.user.info': '<username>:<password>'
 }
 
-# Create Schema Registry client and Avro serializer
+# Create Schema Registry client and JSON serializer
 schema_registry_client = SchemaRegistryClient(sr_config)
-avro_serializer = AvroSerializer(schema, schema_registry_client)
+json_serializer = JSONSerializer(schema_str, schema_registry_client, dynamicClass_to_dict)
 
 # Kafka producer setup
 producer = Producer(config)
@@ -73,7 +70,7 @@ for dynamic_data in dynamic_dictionary_data:
     producer.produce(
         topic=topic,
         key=str(dynamic_object.name),
-        value=avro_serializer(
+        value=json_serializer(
             dynamic_object,
             SerializationContext(topic, MessageField.VALUE)
         ),
