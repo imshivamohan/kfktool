@@ -9,10 +9,6 @@ def create_dynamic_class(schema):
     exec(f"class DynamicClass:\n    def __init__(self, {', '.join(schema['properties'].keys())}):\n        {'; '.join([f'self.{prop} = {prop}' for prop in schema['properties']])}", class_dict)
     return class_dict['DynamicClass']
 
-def create_json_schema_class(schema):
-    schema_str = json.dumps(schema)
-    return f'{{"$schema": "http://json-schema.org/draft-04/schema#", "title": "DynamicClass", "type": "object", "properties": {schema_str}, "required": {json.dumps(list(schema["properties"].keys()))}}}'
-
 def dynamicClass_to_dict(dynamic_class):
     return dynamic_class.__dict__
 
@@ -39,10 +35,8 @@ dynamic_dictionary_data = [
     {"name": "Jane", "age": 25}
 ]
 
-# Generate dynamic class, JSON schema, and serializer function
+# Generate dynamic class
 DynamicClass = create_dynamic_class(schema)
-json_schema = create_json_schema_class(schema)
-serializer_function = dynamicClass_to_dict.__name__
 
 # Kafka producer configuration
 config = {
@@ -63,7 +57,7 @@ sr_config = {
 
 # Create Schema Registry client and JSON serializer
 schema_registry_client = SchemaRegistryClient(sr_config)
-json_serializer = JSONSerializer(json_schema, schema_registry_client, eval(serializer_function))
+json_serializer = JSONSerializer(schema, schema_registry_client, dynamicClass_to_dict)
 
 # Kafka producer setup
 producer = Producer(config)
