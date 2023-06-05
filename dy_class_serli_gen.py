@@ -4,7 +4,7 @@ from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.json_schema import JSONSerializer
 import json
 import jsonschema
-import re
+
 
 config = {
     'bootstrap.servers': '<kafka-bootstrap-servers>',
@@ -28,7 +28,7 @@ def generate_class_from_schema(schema_str):
 
     # Generate the class name using standard naming conventions
     title = schema.get("title", "UnknownClass")
-    class_name = "".join(x.capitalize() for x in re.findall(r'\w+', title))
+    class_name = "".join(x.capitalize() or "_" for x in title.split("_"))
 
     # Generate the class properties and initializer
     properties = schema.get("properties", {})
@@ -73,23 +73,6 @@ def generate_serializer(class_obj):
     return serializer_func
 
 
-def generate_program(class_name):
-    program = f"for item_data in data:\n"
-    program += f"    item = {class_name}("
-    program += ", ".join(f"item_data['{prop_name}']" for prop_name in properties.keys())
-    program += ")\n"
-    program += f"    producer.produce(\n"
-    program += f"        topic=topic,\n"
-    program += f"        key=str(item.{properties_key}),\n"
-    program += f"        value=json_serializer(\n"
-    program += f"            item,\n"
-    program += f"            SerializationContext(topic, MessageField.VALUE)\n"
-    program += f"        ),\n"
-    program += f"        on_delivery=delivery_report\n"
-    program += f"    )\n"
-    return program
-
-
 def delivery_report(err, event):
     if err is not None:
         print(f'Delivery failed on reading for {event.key().decode("utf8")}: {err}')
@@ -98,7 +81,6 @@ def delivery_report(err, event):
 
 
 if __name__ == '__main__':
-    # Define the schema string
     schema_str = """
     {
         "$schema": "http://json-schema.org/draft-04/schema#",
@@ -146,7 +128,16 @@ if __name__ == '__main__':
     json_serializer = JSONSerializer(schema_str, schema_registry_client, serializer)
 
     producer = Producer(config)
-    program = generate_program(GeneratedClass.__name__)
+    for employee_data in data:
+        employee = GeneratedClass(employee_data['name'], employee_data['age'])
+        producer.produce(
+            topic=topic,
+            key=str(employee.name),
+            value=json_serializer(
+                employee,
+                SerializationContext(topic, MessageField.VALUE)
+            ),
+            on_delivery=delivery_report
+        )
 
-    exec(program)
     producer.flush()
