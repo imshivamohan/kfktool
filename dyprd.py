@@ -13,8 +13,8 @@ def create_json_schema_class(schema):
     schema_str = json.dumps(schema)
     return f'{{"$schema": "http://json-schema.org/draft-04/schema#", "title": "DynamicClass", "type": "object", "properties": {schema_str}, "required": {json.dumps(list(schema["properties"].keys()))}}}'
 
-def create_serializer_function(class_name):
-    return f'def {class_name}_to_dict({class_name.lower()}):\n    return {class_name.lower()}.__dict__'
+def dynamicClass_to_dict(dynamic_class):
+    return dynamic_class.__dict__
 
 def delivery_report(err, event):
     if err is not None:
@@ -42,7 +42,7 @@ dynamic_dictionary_data = [
 # Generate dynamic class, JSON schema, and serializer function
 DynamicClass = create_dynamic_class(schema)
 json_schema = create_json_schema_class(schema)
-serializer_function = create_serializer_function(DynamicClass.__name__)
+serializer_function = dynamicClass_to_dict.__name__
 
 # Kafka producer configuration
 config = {
