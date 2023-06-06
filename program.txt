@@ -1,33 +1,45 @@
-from confluent_kafka import Producer
+from confluent_kafka import SerializingProducer
+from confluent_kafka.schema_registry import SchemaRegistryClient
+from confluent_kafka.serialization import StringSerializer, JSONSerializer
 
-# Configure the Kafka producer
+import json
+
+# Kafka broker and topic configuration
+bootstrap_servers = 'localhost:9092'
+topic = 'test-topic'
+
+# Schema Registry configuration
+schema_registry_url = 'http://localhost:8081'
+
+# Example JSON message
+message = {
+    'name': 'Alice',
+    'age': 30,
+    'email': 'alice@example.com'
+}
+
+# Initialize Schema Registry client
+schema_registry_client = SchemaRegistryClient({'url': schema_registry_url})
+
+# Define a serializer using the Schema Registry client
+key_serializer = StringSerializer('utf_8')
+value_serializer = JSONSerializer(schema_registry_client)
+
+# Configure the producer
 producer_config = {
-    'bootstrap.servers': 'your_bootstrap_servers',
-    'key.serializer': 'confluent_kafka.serializers.StringSerializer',
-    'value.serializer': 'confluent_kafka.serializers.JsonSerializer'
+    'bootstrap.servers': bootstrap_servers,
+    'key.serializer': key_serializer,
+    'value.serializer': value_serializer
 }
 
-# Create the Kafka producer
-kafka_producer = Producer(producer_config)
-
-# Define your JSON payload
-json_payload = {
-    'field1': 'value1',
-    'field2': 'value2',
-}
-
-# Define the schema ID
-schema_id = 123  # Replace with your actual schema ID
+# Create the producer
+producer = SerializingProducer(producer_config)
 
 # Produce the message
-try:
-    kafka_producer.produce(
-        topic='your_topic',
-        value=json_payload,
-        headers={'schema_id': str(schema_id)}
-    )
-except Exception as e:
-    print(f"Message production failed: {e}")
+producer.produce(topic=topic, key='some-key', value=message)
 
-# Flush the producer to ensure the message is sent
-kafka_producer.flush()
+# Flush any outstanding messages
+producer.flush()
+
+# Close the producer
+producer.close()
