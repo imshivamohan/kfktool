@@ -1,111 +1,33 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session
-from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required
-from flask_session import Session
-from threading import Lock
-import subprocess
+from confluent_kafka import Producer
 
-app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key'
-app.config['SESSION_TYPE'] = 'filesystem'
-app.config['SESSION_PERMANENT'] = False
+# Configure the Kafka producer
+producer_config = {
+    'bootstrap.servers': 'your_bootstrap_servers',
+    'key.serializer': 'confluent_kafka.serializers.StringSerializer',
+    'value.serializer': 'confluent_kafka.serializers.JsonSerializer'
+}
 
-# Configure session
-Session(app)
+# Create the Kafka producer
+kafka_producer = Producer(producer_config)
 
-# Configure login manager
-login_manager = LoginManager()
-login_manager.init_app(app)
+# Define your JSON payload
+json_payload = {
+    'field1': 'value1',
+    'field2': 'value2',
+}
 
-# Create a lock object to ensure thread safety
-lock = Lock()
+# Define the schema ID
+schema_id = 123  # Replace with your actual schema ID
 
-# User class for authentication
-class User(UserMixin):
-    def __init__(self, username, password):
-        self.id = username
-        self.password = password
+# Produce the message
+try:
+    kafka_producer.produce(
+        topic='your_topic',
+        value=json_payload,
+        headers={'schema_id': str(schema_id)}
+    )
+except Exception as e:
+    print(f"Message production failed: {e}")
 
-    @staticmethod
-    def get(user_id):
-        # Replace with your logic to retrieve user from database or storage
-        users = {'admin': User('admin', 'admin')}
-        return users.get(user_id)
-
-# User registration (Replace with your logic to store user in database or storage)
-def register_user(username, password):
-    # Store user in memory for simplicity
-    user = User(username, password)
-    users[user.id] = user
-
-# User login (Replace with your logic to authenticate user against database or storage)
-def authenticate_user(username, password):
-    user = User.get(username)
-    if user and user.password == password:
-        return user
-
-# Load user for login manager
-@login_manager.user_loader
-def load_user(user_id):
-    return User.get(user_id)
-
-@app.route('/')
-def home():
-    return render_template('index.html')
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        register_user(username, password)
-        flash('Registration successful! Please login.')
-        return redirect(url_for('login'))
-    return render_template('register.html')
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        user = authenticate_user(username, password)
-        if user:
-            login_user(user)
-            flash('Login successful!')
-            return redirect(url_for('dashboard'))
-        else:
-            flash('Invalid username or password.')
-    return render_template('login.html')
-
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    flash('Logout successful!')
-    return redirect(url_for('login'))
-
-@app.route('/dashboard')
-@login_required
-def dashboard():
-    return render_template('dashboard.html')
-
-@app.route('/producer', methods=['POST'])
-@login_required
-def producer():
-    message = request.form['message']
-    # Replace with your logic to retrieve user-specific configuration
-    sapikey, sapipass, _, _, _, tname, scur = get_user_config()
-    with lock:
-        subprocess.call(['confluent-7.0.1/bin/kafka-json-schema-console-producer', '--broker-list', 'localhost:9092', '--topic', f'{tname}', '--producer.config', 'client.properties', '--property', f'value.schema.id={scid}', '--property', f'schema.registry.url={scur}', '--property', 'basic.auth.credentials.source=USER_INFO', '--property', f'schema.registry.basic.auth.user.info={sapikey}:{sapipass}', '--property', 'key.serializer=org.apache.kafka.common.serialization.StringSerializer', '--property', 'value.serializer=io.confluent.kafka.serializers.json.KafkaJsonSchemaSerializer'], input=message.encode())
-    return 'Message sent to Kafka topic successfully.'
-
-@app.route('/consumer')
-@login_required
-def consumer():
-    # Replace with your logic to retrieve user-specific configuration
-    sapikey, sapipass, _, _, cgid, tname, scur = get_user_config()
-    with lock:
-        subprocess.call(['confluent-7.0.1/bin/kafka-json-schema-console-consumer', '--bootstrap-server', 'localhost:9092', '--topic', f'{tname}', '--consumer.config', 'client.properties', '--property', f'value.schema.id={scid}', '--property', f'schema.registry.url={scur}', '--property', 'basic.auth.credentials.source=USER_INFO', '--property', f'schema.registry.basic.auth.user.info={sapikey}:{sapipass}', '--property', 'key.deserializer=org.apache.kafka.common.serialization.StringDeserializer', '--property', 'value.deserializer=io.confluent.kafka.serializers.json.KafkaJsonSchemaDeserializer', '--group', f'{cgid}'])
-    return 'Consumer started.'
-
-if __name__ == '__main__':
-    app.run(debug=True)
+# Flush the producer to ensure the message is sent
+kafka_producer.flush()
