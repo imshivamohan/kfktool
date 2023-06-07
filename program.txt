@@ -1,45 +1,24 @@
-from confluent_kafka import SerializingProducer
-from confluent_kafka.schema_registry import SchemaRegistryClient
-from confluent_kafka.serialization import StringSerializer, JSONSerializer
-
+import os
 import json
 
-# Kafka broker and topic configuration
-bootstrap_servers = 'localhost:9092'
-topic = 'test-topic'
+def merge_json_files(directory, output_file):
+    # Get a list of all JSON files in the directory
+    json_files = [file for file in os.listdir(directory) if file.endswith('.json')]
 
-# Schema Registry configuration
-schema_registry_url = 'http://localhost:8081'
+    with open(output_file, 'w') as outfile:
+        for json_file in json_files:
+            file_path = os.path.join(directory, json_file)
+            with open(file_path, 'r') as infile:
+                # Load the JSON data
+                data = json.load(infile)
+                # Write the JSON data as a single line in the output file
+                outfile.write(json.dumps(data) + '\n')
 
-# Example JSON message
-message = {
-    'name': 'Alice',
-    'age': 30,
-    'email': 'alice@example.com'
-}
+    print(f"All JSON files in {directory} have been merged into {output_file}.")
 
-# Initialize Schema Registry client
-schema_registry_client = SchemaRegistryClient({'url': schema_registry_url})
+# Provide the directory and output file path
+directory = 'C:/ipm'
+output_file = 'merged.json'
 
-# Define a serializer using the Schema Registry client
-key_serializer = StringSerializer('utf_8')
-value_serializer = JSONSerializer(schema_registry_client)
-
-# Configure the producer
-producer_config = {
-    'bootstrap.servers': bootstrap_servers,
-    'key.serializer': key_serializer,
-    'value.serializer': value_serializer
-}
-
-# Create the producer
-producer = SerializingProducer(producer_config)
-
-# Produce the message
-producer.produce(topic=topic, key='some-key', value=message)
-
-# Flush any outstanding messages
-producer.flush()
-
-# Close the producer
-producer.close()
+# Call the function
+merge_json_files(directory, output_file)
