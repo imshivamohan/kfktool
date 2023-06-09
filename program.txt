@@ -1,4 +1,5 @@
 import json
+import base64
 from cryptography.fernet import Fernet
 
 # Generate a local encryption key
@@ -8,10 +9,11 @@ cipher_suite = Fernet(encryption_key)
 def encrypt_field(plaintext):
     plaintext_bytes = bytes(json.dumps(plaintext), encoding="utf-8")
     encrypted_bytes = cipher_suite.encrypt(plaintext_bytes)
-    return encrypted_bytes
+    return base64.b64encode(encrypted_bytes).decode("utf-8")
 
 def decrypt_field(ciphertext):
-    decrypted_bytes = cipher_suite.decrypt(ciphertext)
+    encrypted_bytes = base64.b64decode(ciphertext)
+    decrypted_bytes = cipher_suite.decrypt(encrypted_bytes)
     decrypted_plaintext = decrypted_bytes.decode("utf-8")
     return json.loads(decrypted_plaintext)
 
