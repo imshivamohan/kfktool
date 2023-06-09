@@ -1,23 +1,23 @@
 import json
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
-from cryptography.fernet import Fernet
+from azure.keyvault.keys import KeyClient
+from azure.keyvault.keys.crypto import CryptographyClient, EncryptionAlgorithm
 
 vault_url = "https://<your-vault-name>.vault.azure.net"
 credential = DefaultAzureCredential()
 secret_client = SecretClient(vault_url=vault_url, credential=credential)
+key_client = KeyClient(vault_url=vault_url, credential=credential)
 
 def encrypt_field(plaintext, encryption_key):
-    cipher_suite = Fernet(encryption_key)
-    plaintext_bytes = bytes(json.dumps(plaintext), encoding="utf-8")
-    encrypted_bytes = cipher_suite.encrypt(plaintext_bytes)
-    return encrypted_bytes
+    crypto_client = CryptographyClient(encryption_key, credential)
+    ciphertext = crypto_client.encrypt(EncryptionAlgorithm.rsa_oaep, json.dumps(plaintext).encode("utf-8"))
+    return ciphertext.ciphertext
 
 def decrypt_field(ciphertext, encryption_key):
-    cipher_suite = Fernet(encryption_key)
-    decrypted_bytes = cipher_suite.decrypt(ciphertext)
-    decrypted_plaintext = decrypted_bytes.decode("utf-8")
-    return json.loads(decrypted_plaintext)
+    crypto_client = CryptographyClient(encryption_key, credential)
+    plaintext = crypto_client.decrypt(EncryptionAlgorithm.rsa_oaep, ciphertext)
+    return json.loads(plaintext.plaintext.decode("utf-8"))
 
 original_json = {
     "name": "Modi",
@@ -27,14 +27,20 @@ original_json = {
 print("Original JSON:")
 print(original_json)
 
-encryption_key = secret_client.get_secret("<your-key-id>").value
+# Generate a new encryption key in Azure Key Vault
+key_name = "my-encryption-key"  # Specify a name for the encryption key
+key_type = "RSA"  # Specify the type of the encryption key
+key_size = 2048  # Specify the size of the encryption key
+
+key_operation = key_client.create_key(key_name, key_type, size=key_size)
+encryption_key = key_operation.key
 
 encrypted_name = encrypt_field(original_json["name"], encryption_key)
 encrypted_age = encrypt_field(original_json["age"], encryption_key)
 
 encrypted_json = {
-    "encrypted_name": encrypted_name,
-    "encrypted_age": encrypted_age
+    "encrypted_name": encrypted_name.decode("utf-8"),
+    "encrypted_age": encrypted_age.decode("utf-8")
 }
 
 print("\nEncrypted JSON:")
