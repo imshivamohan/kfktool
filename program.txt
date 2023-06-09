@@ -1,36 +1,20 @@
-# Create a DefaultAzureCredential object to authenticate using your Azure credentials
-credential = DefaultAzureCredential()
+import json
+from cryptography.fernet import Fernet
 
-# Specify your Azure Key Vault details
-key_vault_url = "https://your-key-vault-name.vault.azure.net/"
-key_name = "your-key-name"  # Name of the key in Azure Key Vault
-
-# Create a CryptographyClient object
-crypto_client = CryptographyClient(key_vault_url, key_name, credential)
-
-
+# Generate a local encryption key
+encryption_key = Fernet.generate_key()
+cipher_suite = Fernet(encryption_key)
 
 def encrypt_field(plaintext):
-    # Convert the plaintext field to bytes
     plaintext_bytes = bytes(json.dumps(plaintext), encoding="utf-8")
-
-    # Use the CryptographyClient to encrypt the field
-    encrypted_field = crypto_client.encrypt(encrypt_algorithm="RSA-OAEP", plaintext=plaintext_bytes)
-
-    # Return the encrypted field as a base64-encoded string
-    return encrypted_field.ciphertext
+    encrypted_bytes = cipher_suite.encrypt(plaintext_bytes)
+    return encrypted_bytes
 
 def decrypt_field(ciphertext):
-    # Convert the ciphertext from base64-encoded string to bytes
-    ciphertext_bytes = bytes(ciphertext, encoding="utf-8")
+    decrypted_bytes = cipher_suite.decrypt(ciphertext)
+    decrypted_plaintext = decrypted_bytes.decode("utf-8")
+    return json.loads(decrypted_plaintext)
 
-    # Use the CryptographyClient to decrypt the field
-    decrypted_field = crypto_client.decrypt(decrypt_algorithm="RSA-OAEP", ciphertext=ciphertext_bytes)
-
-    # Return the decrypted field as a string
-    return decrypted_field.plaintext.decode("utf-8")
-
-# Example usage
 original_json = {
     "sensitive_field": "Sensitive value"
 }
@@ -44,13 +28,21 @@ original_json["sensitive_field"] = encrypted_value
 # Serialize the JSON to a string
 serialized_json = json.dumps(original_json)
 
-# Store or transmit the serialized_json as needed
+# Store the encrypted JSON in a file
+with open("encrypted_data.json", "w") as file:
+    file.write(serialized_json)
 
-# Upon retrieval, deserialize the JSON string
-deserialized_json = json.loads(serialized_json)
+# Retrieve the encrypted JSON from the file
+with open("encrypted_data.json", "r") as file:
+    retrieved_json = file.read()
+
+# Deserialize the retrieved JSON string
+deserialized_json = json.loads(retrieved_json)
 
 # Decrypt the sensitive field
 decrypted_value = decrypt_field(deserialized_json["sensitive_field"])
 
 # Update the JSON with the decrypted value
 deserialized_json["sensitive_field"] = decrypted_value
+
+print(deserialized_json)
