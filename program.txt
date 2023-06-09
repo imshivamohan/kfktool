@@ -1,50 +1,53 @@
 import json
-import base64
-from cryptography.fernet import Fernet
+from azure.identity import DefaultAzureCredential
+from azure.keyvault.secrets import SecretClient
 
-# Generate a local encryption key
-encryption_key = Fernet.generate_key()
-cipher_suite = Fernet(encryption_key)
+# Initialize Azure Key Vault client
+vault_url = "https://<your-vault-name>.vault.azure.net"
+credential = DefaultAzureCredential()
+secret_client = SecretClient(vault_url=vault_url, credential=credential)
 
 def encrypt_field(plaintext):
-    plaintext_bytes = bytes(json.dumps(plaintext), encoding="utf-8")
-    encrypted_bytes = cipher_suite.encrypt(plaintext_bytes)
-    return base64.b64encode(encrypted_bytes).decode("utf-8")
+    encrypted_value = secret_client.encrypt(key_id="<your-key-id>", algorithm="RSA-OAEP", plaintext=plaintext.encode("utf-8"))
+    return encrypted_value.ciphertext
 
 def decrypt_field(ciphertext):
-    encrypted_bytes = base64.b64decode(ciphertext)
-    decrypted_bytes = cipher_suite.decrypt(encrypted_bytes)
-    decrypted_plaintext = decrypted_bytes.decode("utf-8")
-    return json.loads(decrypted_plaintext)
+    decrypted_value = secret_client.decrypt(key_id="<your-key-id>", algorithm="RSA-OAEP", ciphertext=ciphertext)
+    return decrypted_value.plaintext.decode("utf-8")
 
 original_json = {
-    "sensitive_field": "Sensitive value"
+    "name": "Modi",
+    "age": 66
 }
 
-# Encrypt the sensitive field
-encrypted_value = encrypt_field(original_json["sensitive_field"])
+# Print the original JSON
+print("Original JSON:")
+print(original_json)
 
-# Update the JSON with the encrypted value
-original_json["sensitive_field"] = encrypted_value
+# Encrypt the "name" field
+encrypted_name = encrypt_field(original_json["name"])
 
-# Serialize the JSON to a string
-serialized_json = json.dumps(original_json)
+# Encrypt the "age" field
+encrypted_age = encrypt_field(str(original_json["age"]))
 
-# Store the encrypted JSON in a file
-with open("encrypted_data.json", "w") as file:
-    file.write(serialized_json)
+# Store the encrypted values in Azure Key Vault
+secret_client.set_secret("encrypted_name", encrypted_name)
+secret_client.set_secret("encrypted_age", encrypted_age)
 
-# Retrieve the encrypted JSON from the file
-with open("encrypted_data.json", "r") as file:
-    retrieved_json = file.read()
+# Retrieve the encrypted values from Azure Key Vault
+encrypted_name = secret_client.get_secret("encrypted_name").value
+encrypted_age = secret_client.get_secret("encrypted_age").value
 
-# Deserialize the retrieved JSON string
-deserialized_json = json.loads(retrieved_json)
+# Decrypt the "name" field
+decrypted_name = decrypt_field(encrypted_name)
 
-# Decrypt the sensitive field
-decrypted_value = decrypt_field(deserialized_json["sensitive_field"])
+# Decrypt the "age" field
+decrypted_age = int(decrypt_field(encrypted_age))
 
-# Update the JSON with the decrypted value
-deserialized_json["sensitive_field"] = decrypted_value
+# Update the JSON with the decrypted values
+original_json["name"] = decrypted_name
+original_json["age"] = decrypted_age
 
-print(deserialized_json)
+# Print the decrypted JSON
+print("\nDecrypted JSON:")
+print(original_json)
