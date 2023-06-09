@@ -1,24 +1,56 @@
-import os
-import json
+# Create a DefaultAzureCredential object to authenticate using your Azure credentials
+credential = DefaultAzureCredential()
 
-def merge_json_files(directory, output_file):
-    # Get a list of all JSON files in the directory
-    json_files = [file for file in os.listdir(directory) if file.endswith('.json')]
+# Specify your Azure Key Vault details
+key_vault_url = "https://your-key-vault-name.vault.azure.net/"
+key_name = "your-key-name"  # Name of the key in Azure Key Vault
 
-    with open(output_file, 'w') as outfile:
-        for json_file in json_files:
-            file_path = os.path.join(directory, json_file)
-            with open(file_path, 'r') as infile:
-                # Load the JSON data
-                data = json.load(infile)
-                # Write the JSON data as a single line in the output file
-                outfile.write(json.dumps(data) + '\n')
+# Create a CryptographyClient object
+crypto_client = CryptographyClient(key_vault_url, key_name, credential)
 
-    print(f"All JSON files in {directory} have been merged into {output_file}.")
 
-# Provide the directory and output file path
-directory = 'C:/ipm'
-output_file = 'merged.json'
 
-# Call the function
-merge_json_files(directory, output_file)
+def encrypt_field(plaintext):
+    # Convert the plaintext field to bytes
+    plaintext_bytes = bytes(json.dumps(plaintext), encoding="utf-8")
+
+    # Use the CryptographyClient to encrypt the field
+    encrypted_field = crypto_client.encrypt(encrypt_algorithm="RSA-OAEP", plaintext=plaintext_bytes)
+
+    # Return the encrypted field as a base64-encoded string
+    return encrypted_field.ciphertext
+
+def decrypt_field(ciphertext):
+    # Convert the ciphertext from base64-encoded string to bytes
+    ciphertext_bytes = bytes(ciphertext, encoding="utf-8")
+
+    # Use the CryptographyClient to decrypt the field
+    decrypted_field = crypto_client.decrypt(decrypt_algorithm="RSA-OAEP", ciphertext=ciphertext_bytes)
+
+    # Return the decrypted field as a string
+    return decrypted_field.plaintext.decode("utf-8")
+
+# Example usage
+original_json = {
+    "sensitive_field": "Sensitive value"
+}
+
+# Encrypt the sensitive field
+encrypted_value = encrypt_field(original_json["sensitive_field"])
+
+# Update the JSON with the encrypted value
+original_json["sensitive_field"] = encrypted_value
+
+# Serialize the JSON to a string
+serialized_json = json.dumps(original_json)
+
+# Store or transmit the serialized_json as needed
+
+# Upon retrieval, deserialize the JSON string
+deserialized_json = json.loads(serialized_json)
+
+# Decrypt the sensitive field
+decrypted_value = decrypt_field(deserialized_json["sensitive_field"])
+
+# Update the JSON with the decrypted value
+deserialized_json["sensitive_field"] = decrypted_value
