@@ -1,17 +1,8 @@
-CREATE TABLE config (
-    id SERIAL PRIMARY KEY,
-    username VARCHAR(255) NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    api_key VARCHAR(255) NOT NULL,
-    api_secret VARCHAR(255) NOT NULL,
-    schema_api_key VARCHAR(255) NOT NULL,
-    schema_api_secret VARCHAR(255) NOT NULL,
-    schema_url VARCHAR(255) NOT NULL,
-    bootstrap_server VARCHAR(255) NOT NULL
-);
-
-
+from flask import Flask, render_template, request
 import psycopg2
+
+# Create a Flask web application
+app = Flask(__name__)
 
 # Establish a connection to the PostgreSQL database
 conn = psycopg2.connect(
@@ -21,10 +12,33 @@ conn = psycopg2.connect(
     password="your_password"
 )
 
-# Create a cursor object to execute SQL queries
-cur = conn.cursor()
+# Define the route for the setconfig page
+@app.route('/setconfig', methods=['GET', 'POST'])
+def setconfig():
+    if request.method == 'POST':
+        # Get the form data
+        username = request.form['username']
+        password = request.form['password']
+        api_key = request.form['api_key']
+        api_secret = request.form['api_secret']
+        schema_api_key = request.form['schema_api_key']
+        schema_api_secret = request.form['schema_api_secret']
+        schema_url = request.form['schema_url']
+        bootstrap_server = request.form['bootstrap_server']
+
+        # Save the config to the database
+        save_config(username, password, api_key, api_secret, schema_api_key, schema_api_secret, schema_url, bootstrap_server)
+
+        # Redirect to a success page or perform any other action
+        return 'Config saved successfully!'
+    else:
+        # Render the setconfig.html template
+        return render_template('setconfig.html')
 
 def save_config(username, password, api_key, api_secret, schema_api_key, schema_api_secret, schema_url, bootstrap_server):
+    # Create a cursor object to execute SQL queries
+    cur = conn.cursor()
+
     # Define the SQL query to insert the data
     sql = """
     INSERT INTO config (username, password, api_key, api_secret, schema_api_key, schema_api_secret, schema_url, bootstrap_server)
@@ -37,9 +51,8 @@ def save_config(username, password, api_key, api_secret, schema_api_key, schema_
     # Commit the changes to the database
     conn.commit()
 
-# Call the save_config function with the appropriate values
-save_config("JohnDoe", "password123", "api_key", "api_secret", "schema_api_key", "schema_api_secret", "schema_url", "bootstrap_server")
+    # Close the cursor
+    cur.close()
 
-# Close the cursor and the database connection
-cur.close()
-conn.close()
+if __name__ == '__main__':
+    app.run()
