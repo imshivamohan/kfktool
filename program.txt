@@ -1,83 +1,45 @@
-from confluent_kafka import Producer
-from confluent_kafka.serialization import SerializationContext, MessageField
-from confluent_kafka.schema_registry import SchemaRegistryClient
-from confluent_kafka.schema_registry.json_schema import JSONSerializer
-import json
-import types
+CREATE TABLE config (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(255) NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    api_key VARCHAR(255) NOT NULL,
+    api_secret VARCHAR(255) NOT NULL,
+    schema_api_key VARCHAR(255) NOT NULL,
+    schema_api_secret VARCHAR(255) NOT NULL,
+    schema_url VARCHAR(255) NOT NULL,
+    bootstrap_server VARCHAR(255) NOT NULL
+);
 
-config = {
-    'bootstrap.servers': '<kafka-bootstrap-servers>',
-    'security.protocol': 'SASL_SSL',
-    'sasl.mechanism': 'PLAIN',
-    'sasl.username': '<username>',
-    'sasl.password': '<password>',
-    'ssl.ca.location': '/path/to/ca.crt',
-    'client.id': 'python-producer'
-}
 
-sr_config = {
-    'url': '<schema-registry-url>',
-    'basic.auth.user.info': '<username>:<password>'
-}
+import psycopg2
 
-schema_str = """
-{
-  "$schema": "http://json-schema.org/draft-04/schema#",
-  "title": "Employee",
-  "type": "object",
-  "properties": {
-    "name": {
-      "type": "string"
-    },
-    "age": {
-      "type": "integer"
-    }
-  },
-  "required": [
-    "name",
-    "age"
-  ]
-}
-"""
+# Establish a connection to the PostgreSQL database
+conn = psycopg2.connect(
+    host="your_host",
+    database="your_database",
+    user="your_user",
+    password="your_password"
+)
 
-data = [
-    {"name": "John", "age": 30},
-    {"name": "Jane", "age": 25}
-]
+# Create a cursor object to execute SQL queries
+cur = conn.cursor()
 
-def delivery_report(err, event):
-    if err is not None:
-        print(f'Delivery failed on reading for {event.key().decode("utf8")}: {err}')
-    else:
-        print(f'Temp reading for {event.key().decode("utf8")} produced to {event.topic()}')
+def save_config(username, password, api_key, api_secret, schema_api_key, schema_api_secret, schema_url, bootstrap_server):
+    # Define the SQL query to insert the data
+    sql = """
+    INSERT INTO config (username, password, api_key, api_secret, schema_api_key, schema_api_secret, schema_url, bootstrap_server)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
+    """
 
-if __name__ == '__main__':
-    topic = 'temp_readings'
+    # Execute the SQL query with the provided data
+    cur.execute(sql, (username, password, api_key, api_secret, schema_api_key, schema_api_secret, schema_url, bootstrap_server))
 
-    schema = json.loads(schema_str)
+    # Commit the changes to the database
+    conn.commit()
 
-    # Dynamically create the class based on the JSON schema
-    cls_dict = {}
-    for prop, prop_schema in schema.get('properties', {}).items():
-        cls_dict[prop] = types.new_class(prop, (object,), {'__annotations__': {prop: prop_schema['type']}})
+# Call the save_config function with the appropriate values
+save_config("JohnDoe", "password123", "api_key", "api_secret", "schema_api_key", "schema_api_secret", "schema_url", "bootstrap_server")
 
-    Employee = types.new_class('Employee', (object,), cls_dict)
-
-    schema_registry_client = SchemaRegistryClient(sr_config)
-
-    json_serializer = JSONSerializer(schema_str, schema_registry_client, Employee.to_dict)
-
-    producer = Producer(config)
-    for employee_data in data:
-        employee = Employee(**employee_data)
-        producer.produce(
-            topic=topic,
-            key=str(employee.name),
-            value=json_serializer(
-                employee,
-                SerializationContext(topic, MessageField.VALUE)
-            ),
-            on_delivery=delivery_report
-        )
-
-    producer.flush()
+# Close the cursor and the database connection
+cur.close()
+conn.close()
