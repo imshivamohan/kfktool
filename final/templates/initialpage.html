@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Kafka Tool</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f2f2f2;
+            font-family: Arial, sans-serif;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .menu {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .menu a {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-right: 10px;
+            transition: background-color 0.3s;
+        }
+
+        .menu a:hover {
+            background-color: #0056b3;
+        }
+
+        .login-box {
+            width: 400px;
+            background-color: #ffffff;
+            margin: 0 auto;
+            padding: 40px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .login-box h2 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333333;
+        }
+
+        .login-box input[type="text"],
+        .login-box input[type="password"],
+        .login-box input[type="email"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #cccccc;
+            border-radius: 3px;
+        }
+
+        .login-box .button-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .login-box input[type="submit"] {
+            width: 48%;
+            padding: 10px;
+            background-color: #007bff;
+            color: #ffffff;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .login-box input[type="submit",type="button"]:hover {
+            background-color: #0056b3;
+        }
+
+        .homepage-form {
+            display: none;
+        }
+
+        .homepage-form.show {
+            display: block;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            {% if display_getconfig %}display: block;{% else %}display: none;{% endif %}
+        }
+
+        /* Additional CSS styles for the table */
+        .config-table {
+            width: 200%;
+            overflow: auto;
+            border-collapse: collapse;
+        }
+
+        .config-table th {
+            background-color: #f2f2f2;
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ccc;
+        }
+
+        .config-table td {
+            padding: 10px;
+            border-bottom: 1px solid #ccc;
+        }
+
+        .config-key {
+            font-weight: bold;
+            color: #555;
+        }
+
+        .config-value {
+            overflow: auto;
+            color: #888;
+        }
+
+        .form-group-heading {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .form-group-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .form-group-table th {
+            background-color: #f2f2f2;
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ccc;
+        }
+
+        .form-group-table td {
+            padding: 10px;
+            border-bottom: 1px solid #ccc;
+        }
+
+        .form-group-label {
+            font-weight: bold;
+            color: #555;
+        }
+
+        .form-group-input {
+            color: #888;
+        }
+
+        .form-group-heading {
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        .form-group-table {
+            width: 100%;
+            margin-bottom: 20px;
+            border-collapse: collapse;
+        }
+
+        .form-group-table th {
+            background-color: #f2f2f2;
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ccc;
+        }
+
+        .form-group-table td {
+            padding: 10px;
+            border-bottom: 1px solid #ccc;
+        }
+
+        .form-group-label {
+            font-weight: bold;
+            color: #555;
+        }
+
+        .form-group-input {
+            color: #888;
+            word-break: break-all;
+        }
+
+        .form-group-message {
+            margin-top: 10px;
+            font-style: italic;
+            color: #888;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="homepage-form {% if display_home %}show{% endif %}">
+        <div class="container">
+            <h1>Kafka Tool</h1>
+            <div class="menu">
+                <a href="/home">Home</a>
+                <a href="/getschema">Get Schema</a>
+                <a href="/producer">Producer</a>
+                <a href="/consumer">Consumer</a>
+                <a href="/set">Set Config</a>
+                <a href="/get">Get Config</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="login-box">
+            <!-- Display error message if exists -->
+            {% if error_message %}
+                <p class="error-message">{{ error_message }}</p>
+            {% endif %}
+
+            <!-- Display success message if exists -->
+            {% if success_message %}
+                <p class="success-message">{{ success_message }}</p>
+            {% endif %}
+            <form {% if display_getconfig %}style="display: block;"{% else %}style="display: none;"{% endif %} id="getconfigForm">
+                <div class="form-group">
+                    <h2 class="form-group-heading">Config Details</h2>
+                    {% if config_data %}
+                        <table class="config-table form-group-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for field, value in config_data.items() %}
+                                    <tr>
+                                        <td class="config-key form-group-label">{{ field }}</td>
+                                        <td class="config-value form-group-input">{{ value }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <p class="form-group-message">No configuration found for the user.</p>
+                    {% endif %}
+                </div>
+            </form>
+
+            <form action="/login" method="POST" {% if display_login %}style="display: block;"{% else %}style="display: none;"{% endif %}>
+                <h2>Login</h2>
+                <input type="text" name="username" placeholder="Username" required>
+                <input type="password" name="password" placeholder="Password" required>
+                <div class="button-container">
+                    <input type="submit" value="Login">
+                    <input type="submit" onclick="showSignupForm()" value="Signup">
+                </div>
+            </form>
+
+            <form action="/signup" method="POST" {% if display_signup %}style="display: block;"{% else %}style="display: none;"{% endif %} id="signupForm">
+                <h2>Signup</h2>
+                <input type="text" name="username" placeholder="Username" required>
+                <input type="password" name="password" placeholder="Password" required>
+                <input type="email" name="email" placeholder="Email" required>
+                <div class="button-container">
+                    <input type="submit" value="Register">
+                </div>
+            </form>
+
+            <form action="/setconfig" method="POST" {% if display_setconfig %}style="display: block;"{% else %}style="display: none;"{% endif %} id="setconfigForm">
+                <div class="form-group">
+                    <label for="api_key">API Key:</label>
+                    <input type="text" id="api_key" name="api_key" required>
+                </div>
+                <div class="form-group">
+                    <label for="api_secret">API Secret:</label>
+                    <input type="text" id="api_secret" name="api_secret" required>
+                </div>
+                <div class="form-group">
+                    <label for="schema_api_key">Schema API Key:</label>
+                    <input type="text" id="schema_api_key" name="schema_api_key" required>
+                </div>
+                <div class="form-group">
+                    <label for="schema_api_secret">Schema API Secret:</label>
+                    <input type="text" id="schema_api_secret" name="schema_api_secret" required>
+                </div>
+                <div class="form-group">
+                    <label for="schema_url">Schema URL:</label>
+                    <input type="text" id="schema_url" name="schema_url" required>
+                </div>
+                <div class="form-group">
+                    <label for="bootstrap_server">Bootstrap Server:</label>
+                    <input type="text" id="bootstrap_server" name="bootstrap_server" required>
+                </div>
+                <div class="button-container">
+                    <input type="submit" value="Save">
+                </div>
+            </form>
+
+
+        </div>
+    </div>
+    <script>
+        function showSignupForm() {
+            const loginForm = document.querySelector("form[action='/login']");
+            const signupForm = document.querySelector("#signupForm");
+
+            loginForm.style.display = "none";
+            signupForm.style.display = "block";
+        }
+
+        function showSetConfig() {
+            const homePageForm = document.querySelector('.homepage-form');
+            const setconfigForm = document.querySelector("#setconfigForm");
+
+            homePageForm.classList.toggle('show');
+            setconfigForm.style.display = "block";
+        }
+    </script>
+</body>
+</html>
