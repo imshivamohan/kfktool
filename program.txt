@@ -1,17 +1,61 @@
-CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
-    username VARCHAR(255) NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL
-);
+import json
+from jsonschema import validate
 
-CREATE TABLE user_config (
-    id SERIAL PRIMARY KEY,
-    username VARCHAR(255) NOT NULL,
-    api_key VARCHAR(255) NOT NULL,
-    api_secret VARCHAR(255) NOT NULL,
-    schema_api_key VARCHAR(255) NOT NULL,
-    schema_api_secret VARCHAR(255) NOT NULL,
-    schema_url VARCHAR(255) NOT NULL,
-    bootstrap_server VARCHAR(255) NOT NULL
-);
+# Define the JSON schema with encryption properties
+schema = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"},
+        "age": {"type": "integer"},
+        "salary": {"type": "number", "encryption": True},
+        "total_income": {"type": "number", "encryption": True}
+    },
+    "required": ["name", "age", "salary", "total_income"]
+}
+
+# Example JSON data
+json_data = '''
+{
+  "name": "John Doe",
+  "age": 30,
+  "salary": 5000.50,
+  "total_income": 10000.75
+}
+'''
+
+def encrypt_field(field_value):
+    # Implement your encryption logic here
+    # This is a placeholder method
+    return "<encrypted>" + str(field_value)
+
+def encrypt_sensitive_fields(json_obj, json_schema):
+    for prop, value in json_obj.items():
+        if prop in json_schema.get("properties", {}):
+            prop_schema = json_schema["properties"][prop]
+            if prop_schema.get("encryption", False):
+                json_obj[prop] = encrypt_field(value)
+        elif prop in json_schema.get("patternProperties", {}):
+            pattern_props = json_schema["patternProperties"][prop]
+            if pattern_props.get("encryption", False):
+                json_obj[prop] = encrypt_field(value)
+    
+    return json_obj
+
+try:
+    # Parse the JSON data
+    data = json.loads(json_data)
+
+    # Validate the JSON data against the schema
+    validate(instance=data, schema=schema)
+
+    # Encrypt sensitive fields
+    encrypted_data = encrypt_sensitive_fields(data, schema)
+
+    # Print the encrypted JSON data
+    print(json.dumps(encrypted_data, indent=2))
+
+except json.JSONDecodeError as e:
+    print("Invalid JSON data:", e)
+
+except Exception as e:
+    print("Validation error:", e)
