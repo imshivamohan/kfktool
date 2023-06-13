@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Kafka Tool</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f2f2f2;
+            font-family: Arial, sans-serif;
+        }
+
+        .container {
+            max-width: 1080px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .menu {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .menu a {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-right: 10px;
+            transition: background-color 0.3s;
+        }
+
+        .menu a:hover {
+            background-color: #0056b3;
+        }
+
+        .login-box {
+            width: 400px;
+            background-color: #ffffff;
+            margin: 0 auto;
+            padding: 40px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .login-box h2 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333333;
+        }
+
+        .login-box input[type="text"],
+        .login-box input[type="password"],
+        .login-box input[type="email"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #cccccc;
+            border-radius: 3px;
+        }
+
+        .login-box .button-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .login-box input[type="submit"] {
+            width: 48%;
+            padding: 10px;
+            background-color: #007bff;
+            color: #ffffff;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .login-box input[type="submit",type="button"]:hover {
+            background-color: #0056b3;
+        }
+
+        .homepage-form {
+            display: none;
+        }
+
+        .homepage-form.show {
+            display: block;
+        }
+        .error-message {
+            color: red;
+			overflow: auto;
+            margin-top: 10px;
+        }
+		.success_message {
+            color: red;
+			overflow: auto;
+            margin-top: 10px;
+        }
+		
+        .table-container {
+            overflow-x: auto;
+            {% if display_getconfig %}display: block;{% else %}display: none;{% endif %}
+        }
+
+        /* Additional CSS styles for the table */
+        .config-table {
+            width: 200%;
+            overflow: auto;
+            border-collapse: collapse;
+        }
+
+        .config-table th {
+            background-color: #f2f2f2;
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ccc;
+        }
+
+        .config-table td {
+            padding: 10px;
+            border-bottom: 1px solid #ccc;
+        }
+
+        .config-key {
+            font-weight: bold;
+            color: #555;
+        }
+
+        .config-value {
+            overflow: auto;
+            color: #888;
+        }
+
+        .form-group-heading {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .form-group-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .form-group-table th {
+            background-color: #f2f2f2;
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ccc;
+        }
+
+        .form-group-table td {
+            padding: 10px;
+            border-bottom: 1px solid #ccc;
+        }
+
+        .form-group-label {
+            font-weight: bold;
+            color: #555;
+        }
+
+        .form-group-input {
+            color: #888;
+        }
+
+        .form-group-heading {
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        .form-group-table {
+            width: 100%;
+            margin-bottom: 20px;
+            border-collapse: collapse;
+        }
+
+        .form-group-table th {
+            background-color: #f2f2f2;
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ccc;
+        }
+
+        .form-group-table td {
+            padding: 10px;
+            border-bottom: 1px solid #ccc;
+        }
+
+        .form-group-label {
+            font-weight: bold;
+            color: #555;
+        }
+
+        .form-group-input {
+            color: #888;
+            word-break: break-all;
+        }
+
+        .form-group-message {
+            margin-top: 10px;
+            font-style: italic;
+            color: #888;
+        }
+		.form-select {
+		width: 100%;
+		padding: 10px;
+		margin-bottom: 20px;
+		border: 1px solid #cccccc;
+		border-radius: 3px;
+		}
+		
+		/* Apply the same styles to the gettopic form */
+		form.gettopic-form {
+		display: none;
+		}
+		
+		form.gettopic-form.show {
+		display: block;
+		}
+
+    </style>
+</head>
+<body>
+    <div class="homepage-form {% if display_home %}show{% endif %}">
+        <div class="container">
+            <h1>Kafka Tool</h1>
+            <div class="menu">
+                <a href="/home">Home</a>
+                <a href="/getschema">Get Schema</a>
+                <a href="/settnc">settnc</a>
+                <a href="/retrieveconfig">retrieveconfig</a>
+                <a href="/set">Set Config</a>
+                <a href="/get">Get Config</a>
+                <a href="/prod">Producer</a>
+                <a href="/cons">Consumer</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+      	{% if error_message %}
+            <p class="error-message">{{ error_message }}</p>
+        {% endif %}
+
+        <!-- Display success message if exists -->
+        {% if success_message %}
+            <p class="success-message">{{ success_message }}</p>
+        {% endif %}
+{% if login_box %}
+<!-- Add this code to the initialpage.html template -->
+
+<!-- For setting topic and consumer group -->
+{% if display_settopiccgroup %}
+    <h2>Set Topic and Consumer Group</h2>
+    <form method="POST" action="/settopicandcgroup">
+        <label for="topic">Topic:</label>
+        <input type="text" id="topic" name="topic" required>
+
+        <label for="consumer_group">Consumer Group:</label>
+        <input type="text" id="consumer_group" name="consumer_group" required>
+
+        <input type="submit" value="Save Configuration">
+    </form>
+{% endif %}
+
+		<div class="login-box">
+            <!-- Display error message if exists -->
+
+            <form {% if display_getconfig %}style="display: block;"{% else %}style="display: none;"{% endif %} id="getconfigForm">
+                <div class="form-group">
+                    <h2 class="form-group-heading">Config Details</h2>
+                    {% if config_data %}
+                        <table class="config-table form-group-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for field, value in config_data.items() %}
+                                    <tr>
+                                        <td class="config-key form-group-label">{{ field }}</td>
+                                        <td class="config-value form-group-input">{{ value }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <p class="form-group-message">No configuration found for the user.</p>
+                    {% endif %}
+                </div>
+            </form>
+			<!-- Add the JSON Schema text block -->
+			{% if json_schema %}
+				<div class="json-schema">
+					<h2 class="form-group-heading">JSON Schema</h2>
+					<pre>{{ json_schema }}</pre>
+				</div>
+			{% endif %}
+
+<form class="gettopic-form" {% if display_topic %}style="display: block;"{% else %}style="display: none;"{% endif %}>
+  <label for="topic">Select a topic:</label>
+  <select class="form-select" id="topic" name="topic" onchange="handleTopicSelection(this.value)">
+    {% for topic in topics %}
+    <option value="{{ topic }}">{{ topic }}</option>
+    {% endfor %}
+  </select>
+</form>
+
+
+            <form action="/login" method="POST" {% if display_login %}style="display: block;"{% else %}style="display: none;"{% endif %}>
+                <h2>Login</h2>
+                <input type="text" name="username" placeholder="Username" required>
+                <input type="password" name="password" placeholder="Password" required>
+                <div class="button-container">
+                    <input type="submit" value="Login">
+                    <input type="submit" onclick="showSignupForm()" value="Signup">
+                </div>
+            </form>
+
+            <form action="/signup" method="POST" {% if display_signup %}style="display: block;"{% else %}style="display: none;"{% endif %} id="signupForm">
+                <h2>Signup</h2>
+                <input type="text" name="username" placeholder="Username" required>
+                <input type="password" name="password" placeholder="Password" required>
+                <input type="email" name="email" placeholder="Email" required>
+                <div class="button-container">
+                    <input type="submit" value="Register">
+                </div>
+            </form>
+
+            <form action="/setconfig" method="POST" {% if display_setconfig %}style="display: block;"{% else %}style="display: none;"{% endif %} id="setconfigForm">
+                <div class="form-group">
+                    <label for="api_key">API Key:</label>
+                    <input type="text" id="api_key" name="api_key" required>
+                </div>
+                <div class="form-group">
+                    <label for="api_secret">API Secret:</label>
+                    <input type="text" id="api_secret" name="api_secret" required>
+                </div>
+                <div class="form-group">
+                    <label for="schema_api_key">Schema API Key:</label>
+                    <input type="text" id="schema_api_key" name="schema_api_key" required>
+                </div>
+                <div class="form-group">
+                    <label for="schema_api_secret">Schema API Secret:</label>
+                    <input type="text" id="schema_api_secret" name="schema_api_secret" required>
+                </div>
+                <div class="form-group">
+                    <label for="schema_url">Schema URL:</label>
+                    <input type="text" id="schema_url" name="schema_url" required>
+                </div>
+                <div class="form-group">
+                    <label for="bootstrap_server">Bootstrap Server:</label>
+                    <input type="text" id="bootstrap_server" name="bootstrap_server" required>
+                </div>
+                <div class="button-container">
+                    <input type="submit" value="Save">
+                </div>
+            </form>
+            <form action="/settnc" method="POST" {% if display_settnc %}style="display: block;"{% else %}style="display: none;"{% endif %} id="setconfigForm">
+                <div class="form-group">
+                    <label for="topic">TOPIC:</label>
+                    <input type="text" id="topic" name="topic" required>
+                </div>
+                <div class="form-group">
+                    <label for="consumer_group">CONSUMER GROUP</label>
+                    <input type="text" id="consumer_group" name="consumer_group" required>
+                </div>
+                <div class="button-container">
+                    <input type="submit" value="Save">
+                </div>
+            </form>
+
+        </div>
+	{% endif %}
+    </div>
+    <script>
+        function showSignupForm() {
+            const loginForm = document.querySelector("form[action='/login']");
+            const signupForm = document.querySelector("#signupForm");
+
+            loginForm.style.display = "none";
+            signupForm.style.display = "block";
+        }
+
+        function showSetConfig() {
+            const homePageForm = document.querySelector('.homepage-form');
+            const setconfigForm = document.querySelector("#setconfigForm");
+
+            homePageForm.classList.toggle('show');
+            setconfigForm.style.display = "block";
+        }
+function handleTopicSelection(selectedTopic) {
+  console.log("Selected topic:", selectedTopic);
+  getSchema(selectedTopic);
+}
+
+function getSchema(topic) {
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", "/getschema", true);
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState === 4 && xhr.status === 200) {
+      var response = JSON.parse(xhr.responseText);
+      
+      if (response.success) {
+        var jsonSchema = JSON.parse(response.json_schema);
+        console.log("Retrieved schema:", jsonSchema);
+        
+        // Perform actions with the retrieved schema here
+      } else {
+        console.log("Error:", response.error_message);
+      }
+    }
+  };
+  xhr.send();
+}
+
+
+    </script>
+</body>
+</html>
