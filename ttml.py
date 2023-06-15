@@ -211,7 +211,9 @@ def get_config():
 def get_schema():
     if 'username' not in session:
         return redirect('/')  # Redirect to login if user is not logged in
-
+    if request.method == 'POST':
+        topic = request.form['selectedTopic']
+    
     conn = get_connection()
     cursor = conn.cursor()
     username = session['username']
@@ -272,8 +274,17 @@ def settopicandcgroup():
     return render_template('initialpage.html',  display_home=True, login_box=True, display_settnc=True)
 
 
+
+@app.route('/posttopic', methods=['GET', 'POST'])
+def retrieve_config():
+    if request.method == 'POST':
+        selected_topic = request.form['selectedTopic']
+        retrieve_topic(selected_topic)
+        
+    return list_topics()
+
 @app.route('/retrieveconfig', methods=['GET', 'POST'])
-def retrieve_topics():
+def list_topics():
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -293,6 +304,13 @@ def retrieve_topics():
 
     # Pass the topic list to the template for rendering
     return render_template('initialpage.html', display_topic=True, topics=topic_list, login_box=True, display_home=True)
+
+def retrieve_topic(topic):
+    # Process the retrieved topic as needed
+    print('Retrieved topic:', topic)
+    # Call another function or perform actions with the retrieved topic
+    # ...
+
 
 if __name__ == '__main__':
     app.run(host='localhost', port=8501)

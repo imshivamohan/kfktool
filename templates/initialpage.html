@@ -239,7 +239,7 @@
                 <a href="/home">Home</a>
                 <a href="/getschema">Get Schema</a>
                 <a href="/settnc">settnc</a>
-                <a href="/retrieveconfig">retrieveconfig</a>
+                <a href="/retrieveconfig">Schema Operations</a>
                 <a href="/set">Set Config</a>
                 <a href="/get">Get Config</a>
                 <a href="/prod">Producer</a>
@@ -310,15 +310,20 @@
 				</div>
 			{% endif %}
 
-<form class="gettopic-form" {% if display_topic %}style="display: block;"{% else %}style="display: none;"{% endif %}>
-  <label for="topic">Select a topic:</label>
-  <select class="form-select" id="topic" name="topic" onchange="handleTopicSelection(this.value)">
+
+
+<form class="gettopic-form"  method="POST" action="/getschema" {% if display_topic %}style="display: block;"{% else %}style="display: none;"{% endif %}>
+ <label for="topic">Select a topic:</label>
+  <select  class="form-select" name="selectedTopic">
     {% for topic in topics %}
-    <option value="{{ topic }}">{{ topic }}</option>
+      <option value="{{ topic }}">{{ topic }}</option>
     {% endfor %}
   </select>
-</form>
+  <div class="button-container">
+                    <input type="submit" value="Submit">
+                </div>
 
+</form>
 
             <form action="/login" method="POST" {% if display_login %}style="display: block;"{% else %}style="display: none;"{% endif %}>
                 <h2>Login</h2>
@@ -402,30 +407,6 @@
             homePageForm.classList.toggle('show');
             setconfigForm.style.display = "block";
         }
-function handleTopicSelection(selectedTopic) {
-  console.log("Selected topic:", selectedTopic);
-  getSchema(selectedTopic);
-}
-
-function getSchema(topic) {
-  var xhr = new XMLHttpRequest();
-  xhr.open("GET", "/getschema", true);
-  xhr.onreadystatechange = function () {
-    if (xhr.readyState === 4 && xhr.status === 200) {
-      var response = JSON.parse(xhr.responseText);
-      
-      if (response.success) {
-        var jsonSchema = JSON.parse(response.json_schema);
-        console.log("Retrieved schema:", jsonSchema);
-        
-        // Perform actions with the retrieved schema here
-      } else {
-        console.log("Error:", response.error_message);
-      }
-    }
-  };
-  xhr.send();
-}
 
 
     </script>
