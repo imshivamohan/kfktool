@@ -1,61 +1,64 @@
-import json
-from jsonschema import validate
-
-# Define the JSON schema with encryption properties
-schema = {
-    "type": "object",
-    "properties": {
-        "name": {"type": "string"},
-        "age": {"type": "integer"},
-        "salary": {"type": "number", "encryption": True},
-        "total_income": {"type": "number", "encryption": True}
-    },
-    "required": ["name", "age", "salary", "total_income"]
-}
-
-# Example JSON data
-json_data = '''
-{
-  "name": "John Doe",
-  "age": 30,
-  "salary": 5000.50,
-  "total_income": 10000.75
-}
-'''
-
-def encrypt_field(field_value):
-    # Implement your encryption logic here
-    # This is a placeholder method
-    return "<encrypted>" + str(field_value)
-
-def encrypt_sensitive_fields(json_obj, json_schema):
-    for prop, value in json_obj.items():
-        if prop in json_schema.get("properties", {}):
-            prop_schema = json_schema["properties"][prop]
-            if prop_schema.get("encryption", False):
-                json_obj[prop] = encrypt_field(value)
-        elif prop in json_schema.get("patternProperties", {}):
-            pattern_props = json_schema["patternProperties"][prop]
-            if pattern_props.get("encryption", False):
-                json_obj[prop] = encrypt_field(value)
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Loading Animation</title>
+  <style>
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
     
-    return json_obj
-
-try:
-    # Parse the JSON data
-    data = json.loads(json_data)
-
-    # Validate the JSON data against the schema
-    validate(instance=data, schema=schema)
-
-    # Encrypt sensitive fields
-    encrypted_data = encrypt_sensitive_fields(data, schema)
-
-    # Print the encrypted JSON data
-    print(json.dumps(encrypted_data, indent=2))
-
-except json.JSONDecodeError as e:
-    print("Invalid JSON data:", e)
-
-except Exception as e:
-    print("Validation error:", e)
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+  <script>
+    function showLoadingAnimation() {
+      var loadingOverlay = document.createElement('div');
+      loadingOverlay.className = 'loading-overlay';
+      
+      var loadingSpinner = document.createElement('div');
+      loadingSpinner.className = 'loading-spinner';
+      
+      loadingOverlay.appendChild(loadingSpinner);
+      
+      document.body.appendChild(loadingOverlay);
+    }
+    
+    function hideLoadingAnimation() {
+      var loadingOverlay = document.querySelector('.loading-overlay');
+      document.body.removeChild(loadingOverlay);
+    }
+  </script>
+</head>
+<body>
+  <h1>Loading Animation Example</h1>
+  
+  <button onclick="showLoadingAnimation();">Show Loading Animation</button>
+  
+  <script>
+    // Simulate an AJAX request or time-consuming operation
+    setTimeout(function() {
+      hideLoadingAnimation();
+    }, 3000);
+  </script>
+</body>
+</html>
