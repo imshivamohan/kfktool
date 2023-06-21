@@ -1,3 +1,73 @@
+from flask import Flask, render_template, request
+import json
+import jsonschema
+
+app = Flask(__name__)
+
+def format_json(input_json):
+    formatted_json = json.dumps(json.loads(input_json), indent=4)
+    return formatted_json
+
+def validate_json(input_json):
+    try:
+        json.loads(input_json)
+        return True
+    except ValueError:
+        return False
+
+def write_json_to_file(json_data, filename):
+    with open(filename, 'w') as file:
+        file.write(json_data)
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/format_json', methods=['POST'])
+def format_json_route():
+    input_json = request.form['json_input']
+
+    if validate_json(input_json):
+        formatted_json = format_json(input_json)
+        single_line_json = formatted_json.replace('\n', '')
+        filename = "formatted_json.txt"
+        write_json_to_file(single_line_json, filename)
+        with open(filename, 'r') as file:
+            file_contents = file.read()
+        return render_template('index.html', formatted_json=formatted_json, single_line_json=single_line_json, file_contents=file_contents)
+    else:
+        error_message = "Invalid JSON! Please enter a valid JSON."
+        return render_template('index.html', error_message=error_message)
+
+if __name__ == '__main__':
+    app.run()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 import os
 import subprocess
 import tempfile
