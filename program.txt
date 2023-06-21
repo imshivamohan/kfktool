@@ -1,3 +1,39 @@
+import json
+
+def validate_json(input_json):
+    try:
+        json.loads(input_json)
+        return True
+    except ValueError:
+        return False
+
+def format_json(input_json):
+    try:
+        parsed_json = json.loads(input_json)
+        formatted_json = json.dumps(parsed_json, separators=(',', ':'))
+        return formatted_json
+    except ValueError:
+        return "Invalid JSON! Please enter a valid JSON."
+
+def main():
+    input_json = input("Enter JSON: ")
+
+    if validate_json(input_json):
+        formatted_json = format_json(input_json)
+        print("Formatted JSON (single line):")
+        print(formatted_json)
+    else:
+        print("Invalid JSON! Please enter a valid JSON.")
+
+if __name__ == "__main__":
+    main()
+
+
+
+
+
+
+
 from flask import Flask, render_template, request
 import json
 import jsonschema
