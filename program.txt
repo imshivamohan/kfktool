@@ -64,3 +64,80 @@ time.sleep(60)  # Simulating a session timeout of 60 seconds
 # Step 6: Clean up the session-specific client.properties file
 os.remove(temp_file_path)
 
+
+
+import os
+import tempfile
+import sqlite3
+import time
+from datetime import datetime, timedelta
+from flask import Flask, session, redirect
+
+app = Flask(__name__)
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SECRET_KEY'] = 'your-secret-key'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=111)
+
+# Check session timeout on every request
+@app.before_request
+def check_session_timeout():
+    if 'last_activity' in session:
+        # Calculate the time difference between the current time and the last activity time
+        last_activity = session['last_activity']
+        current_time = datetime.now()
+        time_diff = current_time - last_activity
+
+        # Check if the session has exceeded the session lifetime
+        if time_diff > app.config['PERMANENT_SESSION_LIFETIME']:
+            session.clear()  # Clear the session data
+
+            # Delete the session-specific client.properties file
+            if 'client_properties_file' in session:
+                client_properties_file = session['client_properties_file']
+                os.remove(client_properties_file)
+
+            return redirect('/')  # Redirect the user to the login page or any appropriate page
+
+    # Update the last activity time in the session
+    session['last_activity'] = datetime.now()
+
+
+# Generate a session-specific client.properties file
+def generate_client_properties_file():
+    # Retrieve configurations from the database
+    conn = sqlite3.connect('your_database.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT sasl_config, sasl_mechanism, security_protocol FROM your_table')
+    sasl_config, sasl_mechanism, security_protocol = cursor.fetchone()
+    cursor.close()
+    conn.close()
+
+    # Create content for client.properties file
+    client_properties_content = f'sasl.jaas.config={sasl_config}\n' \
+                                f'sasl.mechanism={sasl_mechanism}\n' \
+                                f'security.protocol={security_protocol}\n'
+
+    # Create a session-specific client.properties file
+    temp_file = tempfile.NamedTemporaryFile(suffix='.properties', delete=False)
+    temp_file.write(client_properties_content.encode())
+    temp_file.close()
+
+    return temp_file.name
+
+
+# Set up the session and generate client.properties file
+@app.route('/')
+def index():
+    session.permanent = True
+    session['last_activity'] = datetime.now()
+
+    # Generate the session-specific client.properties file
+    client_properties_file = generate_client_properties_file()
+    session['client_properties_file'] = client_properties_file
+
+    return 'Session started'
+
+
+if __name__ == '__main__':
+    app.run()
+
