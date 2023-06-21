@@ -141,3 +141,36 @@ def index():
 if __name__ == '__main__':
     app.run()
 
+
+
+
+
+import subprocess
+
+bootstrap_server = "1kc-5k918-e8gnm.eastus2.azure.glb.confluent.cloud:9092"
+topic = "ubs.accountactivity.payments.data.overdrive.mm.busa.fsi"
+schema_id = "100323"
+schema_registry_url = "https://psrc-92n1d.westus2.azure.confluent.cloud"
+basic_auth_source = "USERINFO"
+basic_auth_user_info = "FJ222X3WOHZZC3MO:FHR5Ii/9GIdpW00gmSVgCIkwS4WuLfsYbgCILLo7fZGvC2gww80txpmbnChryYod"
+key_serializer = "org.apache.kafka.common.serialization.StringSerializer"
+value_serializer = "io.confluent.kafka.serializers.json.KafkaJsonSchemaSerializer"
+client_properties_file = "client.properties"
+data_file = "data.txt"
+
+command = f"cat {data_file} | confluent-7.3.1/bin/kafka-json-schema-console-producer-bootstrap-server {bootstrap_server} --topic {topic} --property value.schema.id={schema_id} --property schema.registry.url={schema_registry_url} --property basic.auth.credentials.source={basic_auth_source} --property schema.registry.basic.auth.user.info=\"{basic_auth_user_info}\" --property \"key.serializer\"=\"{key_serializer}\" --property \"value.serializer\"=\"{value_serializer}\" --producer.config {client_properties_file}"
+
+# Execute the command and capture the output
+process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+stdout, stderr = process.communicate()
+
+# Print the standard output
+print("Standard Output:")
+print(stdout.decode())
+
+# Print the standard error
+print("Standard Error:")
+print(stderr.decode())
+
+
+
