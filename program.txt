@@ -1,68 +1,66 @@
-import subprocess
 import os
+import subprocess
+import tempfile
+import sqlite3
 
-def liprod():
-    renvs()
-    print("Kafka Producer started...")
-    print(f"In Topic Name: {Stname}")
-    print(f"In schema id: {Sscid}")
-    print(f"In SCHMA-URL: {Sscurl}")
-    print(f"In BOOTSTRAP-SERVER: {Skboots}")
-    command = ["confluent-7.0.1/bin/kafka-json-schema-console-producer", "-bootstrap-server",
-               f"--property", "value.schema.id", f"{scid}",
-               "--property", "schema.registry.url", f"{scurl}",
-               "--property", "basic.auth.credentials.source", "USER_INFO",
-               "--property", "schema.registry.basic.auth.user.info", f"{sapikey}:{sapipass}",
-               "--property", "key.serializer", "org.apache.kafka.common.serialization.Stringserializer",
-               "--property", "value.serializer", "io.confluent.kafka.serializers.json.KafkaJsonSchemaSerializer",
-               "--producer.config", "client.properties"]
-    process = subprocess.run(command, stdout=subprocess.PIPE, text=True)
-    print(process.stdout)
+# Step 1: Retrieve credentials from the database
+conn = sqlite3.connect('your_database.db')
+cursor = conn.cursor()
+cursor.execute('SELECT username, password FROM your_table')
+username, password = cursor.fetchone()
+cursor.close()
+conn.close()
 
-def lipcons():
-    renvs()
-    print("Kafka Consumer started...")
-    print(f"Topic Name: {tname}")
-    print(f"Schema id: {scid}")
-    print(f"Consumer Group: {cgid}")
-    print(f"SCHEMA-URL: {scurl}")
-    print(f"BOOTSTRAP-SERVER: {Skboots}")
-    executable_path = "confluent-7.0.1/bin/kafka-json-schema-console-consumer"
-    
-    if os.path.exists(executable_path):
-        command = [executable_path, "--bootstrap-server",
-                   "--consumer.config", "client.properties",
-                   "--property", "value.schema.id", f"{scid}",
-                   "--property", "schema.registry.url", f"{scurl}",
-                   "--property", "basic.auth.credentials.source", "USER_INFO",
-                   "--property", "schema.registry.basic.auth.user.info", f"{sapikey}:{sapipass}",
-                   "--property", "key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer",
-                   "--property", "value.deserializer", "io.confluent.kafka.serializers.json.KafkaJsonSchemaDeserializer",
-                   "--group", "Scrid",
-                   "--property", "print.timestamp=true"]
-        process = subprocess.run(command, stdout=subprocess.PIPE, text=True)
-        print(process.stdout)
-    else:
-        print(f"File '{executable_path}' does not exist.")
+# Step 2: Create JASS configuration file
+jass_content = f'KafkaClient {{\n  org.apache.kafka.common.security.plain.PlainLoginModule required\n  username="{username}"\n  password="{password}";\n}}'
+with tempfile.NamedTemporaryFile(suffix='.conf', delete=False) as temp_file:
+    temp_file.write(jass_content.encode())
 
-def renvs():
-    # Implementation for setting up necessary environment variables
-    pass
+# Step 3: Set JASS configuration file as an environment variable
+os.environ['KAFKA_JAAS_CONFIG'] = temp_file.name
 
-# Example usage
-Stname = "my_topic"
-Sscid = "123"
-Sscurl = "https://example.com"
-Skboots = "localhost:9092"
-scid = "456"
-scurl = "https://example.com"
-sapikey = "my_key"
-sapipass = "my_password"
-tname = "my_topic"
-scid = "789"
-cgid = "my_consumer_group"
-scurl = "https://example.com"
-Skboots = "localhost:9092"
+# Step 4: Execute Kafka command-line commands
+subprocess.run(['kafka-topics', '--list'], check=True)
+# Perform other Kafka command-line operations as needed
 
-liprod()
-lipcons()
+# Step 5: Clean up
+os.remove(temp_file.name)
+del os.environ['KAFKA_JAAS_CONFIG']
+
+
+import os
+import tempfile
+import sqlite3
+import time
+
+# Generate a session identifier (you can modify this according to your needs)
+session_id = str(int(time.time()))
+
+# Step 1: Retrieve configurations from the database
+conn = sqlite3.connect('your_database.db')
+cursor = conn.cursor()
+cursor.execute('SELECT sasl_config, sasl_mechanism, security_protocol FROM your_table')
+sasl_config, sasl_mechanism, security_protocol = cursor.fetchone()
+cursor.close()
+conn.close()
+
+# Step 2: Create content for client.properties file
+client_properties_content = f'sasl.jaas.config={sasl_config}\n' \
+                            f'sasl.mechanism={sasl_mechanism}\n' \
+                            f'security.protocol={security_protocol}\n'
+
+# Step 3: Save content to a session-specific client.properties file
+temp_file_name = f"client_{session_id}.properties"
+temp_file_path = os.path.join(tempfile.gettempdir(), temp_file_name)
+with open(temp_file_path, 'w') as temp_file:
+    temp_file.write(client_properties_content)
+
+# Step 4: Use the session-specific client.properties file in Kafka operations
+# Use the Kafka client library of your choice and provide the path to the session-specific client.properties file when creating a Kafka client or consumer
+
+# Step 5: Simulate session expiration
+time.sleep(60)  # Simulating a session timeout of 60 seconds
+
+# Step 6: Clean up the session-specific client.properties file
+os.remove(temp_file_path)
+
