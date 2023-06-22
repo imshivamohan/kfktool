@@ -1,3 +1,39 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Kafka Operations Home</title>
+</head>
+<body>
+  <h1>Scope of this Page</h1>
+  <p>
+    This page provides options to manage Kafka topics, configurations, schemas, producers, and consumers.
+  </p>
+  
+  <h2>Topic Options</h2>
+  <p>
+    <strong>Set Topic Detail:</strong> Allows you to specify topic details.<br>
+    <strong>Set Config:</strong> Sets all the required configurations for Kafka client operations.<br>
+    <strong>Get Config:</strong> Retrieves the available configurations from the database.<br>
+    <strong>Schema Operations:</strong> Provides two options:<br>
+    - <em>Get Latest Schema Details:</em> Retrieves the latest schema details of the topic.<br>
+    - <em>Validate JSON with Latest Schema:</em> Validates JSON messages with the latest schema of the topic.
+  </p>
+  
+  <h2>Producer and Consumer</h2>
+  <p>
+    The producer helps you produce messages using the latest schema of the topic.<br>
+    The consumer retrieves the latest messages from the Kafka topic.
+  </p>
+</body>
+</html>
+
+
+
+
+
+
+
 import json
 
 def validate_json(input_json):
