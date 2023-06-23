@@ -1,4 +1,186 @@
 from jinja2 import Environment, Template
+import requests
+
+def fetch_json_schema(url):
+    """
+    Fetches the JSON schema from the provided URL.
+    Returns the JSON schema as a dictionary.
+    """
+    response = requests.get(url)
+    response.raise_for_status()
+    json_schema = response.json()
+    return json_schema
+
+def generate_java_type(property_schema):
+    """
+    Generates the Java type for a given property schema,
+    considering custom type mappings and handling arrays.
+    """
+    if "type" in property_schema:
+        prop_type = property_schema["type"]
+        if prop_type == "array":
+            items_schema = property_schema.get("items", {})
+            if "$ref" in items_schema:
+                ref_type = items_schema["$ref"].split("/")[-1]
+                return f"List<{ref_type}>"
+            elif "type" in items_schema:
+                item_type = generate_java_type(items_schema)
+                return f"List<{item_type}>"
+        elif prop_type == "object":
+            if "$ref" in property_schema:
+                ref_type = property_schema["$ref"].split("/")[-1]
+                return ref_type
+            else:
+                return "Object"
+        elif prop_type in custom_type_mappings:
+            return custom_type_mappings[prop_type]
+
+    # Default to Object type if no specific mapping found
+    return "Object"
+
+def generate_class_properties(properties, indent=""):
+    """
+    Generates the Java class properties code block recursively,
+    considering nested objects and arrays.
+    """
+    code = ""
+    for prop, prop_schema in properties.items():
+        prop_type = generate_java_type(prop_schema)
+        if prop_type:
+            code += f"{indent}private {prop_type} {prop};\n"
+
+        if "properties" in prop_schema:
+            nested_props = prop_schema["properties"]
+            code += generate_class_properties(nested_props, indent)
+
+    return code
+
+def generate_getters_setters(properties, indent=""):
+    """
+    Generates the Java getters and setters code block recursively,
+    considering nested objects and arrays.
+    """
+    code = ""
+    for prop, prop_schema in properties.items():
+        prop_type = generate_java_type(prop_schema)
+        if prop_type:
+            code += f"\n{indent}public {prop_type} get{prop.capitalize()}() {{\n"
+            code += f"{indent}    return {prop};\n"
+            code += f"{indent}}}\n"
+
+            code += f"\n{indent}public void set{prop.capitalize()}({prop_type} {prop}) {{\n"
+            code += f"{indent}    this.{prop} = {prop};\n"
+            code += f"{indent}}}\n"
+
+        if "properties" in prop_schema:
+            nested_props = prop_schema["properties"]
+            code += generate_getters_setters(nested_props, indent)
+
+    return code
+
+# URL for fetching the JSON schema
+json_schema_url = "https://example.com/json-schema"
+
+# Fetch the JSON schema from the schema registry
+json_schema = fetch_json_schema(json_schema_url)
+
+# Custom type mappings (JSON type to Java type)
+custom_type_mappings = {
+    "integer": "int",
+    "string": "String",
+    "boolean": "boolean",
+    "number": "double"
+}
+
+# Extract the class name from the title or use a default class name
+title = json_schema.get("title", "Newgenpojoclass")
+class_name_parts = title.split()
+class_name = class_name_parts[0].capitalize()
+
+# Define the Jinja2 template for the Java POJO
+template_str = """
+public class {{ class_name }} {
+    {% for prop, prop_schema in properties.items() %}
+    private {{ generate_java_type(prop_schema) }} {{ prop }};
+    {% endfor %}
+
+    public {{ class_name }}() {
+    }
+
+    public {{ class_name }}({% for prop, prop_schema in properties.items() %}{{ generate_java_type(prop_schema) }} {{ prop }}{% if not loop.last %}, {% endif %}{% endfor %}) {
+        super();
+        {% for prop, prop_schema in properties.items() %}
+        this.{{ prop }} = {{ prop }};
+        {% endfor %}
+    }
+
+    {% for prop, prop_schema in properties.items() %}
+    public {{ generate_java_type(prop_schema) }} get{{ prop.capitalize() }}() {
+        return {{ prop }};
+    }
+
+    public void set{{ prop.capitalize() }}({{ generate_java_type(prop_schema) }} {{ prop }}) {
+        this.{{ prop }} = {{ prop }};
+    }
+    {% endfor %}
+
+    @Override
+    public String toString() {
+        return "{{ class_name }} ("
+                {% for prop, prop_schema in properties.items() %}
+                + "{{ prop }}=" + {{ prop }} + ", "
+                {% endfor %}
+                + "]";
+    }
+
+    public void validate() throws IllegalArgumentException {
+        {% for prop in required_fields %}
+        if ({{ prop }} == null || {{ prop }}.isEmpty()) {
+            throw new IllegalArgumentException("{{ prop }} must not be null or empty.");
+        }
+        {% endfor %}
+    }
+}
+"""
+
+# Create a Jinja2 environment and register the custom functions as filters
+env = Environment()
+env.filters["generate_java_type"] = generate_java_type
+
+# Create a Jinja2 template object
+template = env.from_string(template_str)
+
+# Get the list of required fields
+required_fields = json_schema.get("required", [])
+
+# Render the template with the data from the JSON schema
+rendered_code = template.render(
+    class_name=class_name,
+    properties=json_schema['properties'],
+    required_fields=required_fields
+)
+
+# Print the generated Java code
+print(rendered_code)
+###################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+from jinja2 import Environment, Template
 import json
 
 # JSON schema as a string
