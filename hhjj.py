@@ -1,32 +1,60 @@
-def generate_class_code(class_name, properties):
-    template_str = """
-    public class {{ class_name }} {
-        {% if properties %}
-        {% for prop, prop_schema in properties.items() %}
-        private {{ generate_java_type(prop_schema) }} {{ prop }};
-        {% endfor %}
-
-        // Getters and Setters
-        {% for prop, prop_schema in properties.items() %}
-        public {{ generate_java_type(prop_schema) }} get{{ prop|capitalize }}() {
-            return {{ prop }};
-        }
-
-        public void set{{ prop|capitalize }}({{ generate_java_type(prop_schema) }} {{ prop }}) {
-            this.{{ prop }} = {{ prop }};
-        }
-        {% endfor %}
-        {% endif %}
-    }
+def generate_java_pojos(json_schema_url):
     """
+    Generates Java POJOs based on a JSON schema fetched from the provided URL.
+    Returns a dictionary of generated Java code snippets where the key is the class name.
+    """
+    json_schema = fetch_json_schema(json_schema_url)
 
-    env = Environment()
-    env.filters["generate_java_type"] = generate_java_type
-    template = env.from_string(template_str)
-    rendered_code = template.render(class_name=class_name, properties=properties)
+    pojo_code_snippets = {}
 
-    return rendered_code
+    def generate_class_code(class_name, properties):
+        template_str = """
+        public class {{ class_name }} {
+            {% if properties %}
+            {% for prop, prop_schema in properties.items() %}
+            private {{ generate_java_type(prop_schema) }} {{ prop }};
+            {% endfor %}
 
+            // Getters and Setters
+            {% for prop, prop_schema in properties.items() %}
+            public {{ generate_java_type(prop_schema) }} get{{ prop|capitalize }}() {
+                return {{ prop }};
+            }
+
+            public void set{{ prop|capitalize }}({{ generate_java_type(prop_schema) }} {{ prop }}) {
+                this.{{ prop }} = {{ prop }};
+            }
+            {% endfor %}
+            {% endif %}
+        }
+        """
+
+        env = Environment()
+        env.filters["generate_java_type"] = generate_java_type
+        template = env.from_string(template_str)
+        rendered_code = template.render(class_name=class_name, properties=properties)
+
+        return rendered_code
+
+    def traverse_schema(schema, class_name):
+        if schema.get("type") == "object":
+            properties = schema.get("properties")
+            if properties:
+                pojo_code_snippets[class_name] = generate_class_code(class_name, properties)
+
+                for prop, prop_schema in properties.items():
+                    if "$ref" in prop_schema:
+                        ref_class_name = prop_schema["$ref"].split("/")[-1]
+                        traverse_schema(prop_schema, ref_class_name)
+                    elif "type" in prop_schema and prop_schema["type"] == "array":
+                        items_schema = prop_schema.get("items", {})
+                        if "$ref" in items_schema:
+                            ref_class_name = items_schema["$ref"].split("/")[-1]
+                            traverse_schema(items_schema, ref_class_name)
+
+    traverse_schema(json_schema, "NewGenPOJOClass")
+
+    return pojo_code_snippets
 
 
 
