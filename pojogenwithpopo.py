@@ -1,4 +1,119 @@
-from jinja2 import Template
+import json
+
+
+def generate_pojo_class(class_name, properties):
+    class_code = f'public class {class_name} {{\n\n'
+
+    for prop_name, prop_details in properties.items():
+        prop_type = prop_details['type']
+
+        if prop_type == 'array':
+            item_type = prop_details['items']['type']
+            item_type = convert_to_java_type(item_type)
+            class_code += f'\tprivate List<{item_type}> {prop_name};\n'
+        elif prop_type == 'object':
+            ref_class = prop_name.capitalize()
+            class_code += f'\tprivate {ref_class} {prop_name};\n'
+        else:
+            prop_type = convert_to_java_type(prop_type)
+            class_code += f'\tprivate {prop_type} {prop_name};\n'
+
+    class_code += '\n'
+
+    for prop_name, _ in properties.items():
+        prop_name = prop_name[0].upper() + prop_name[1:]
+        prop_type = properties[prop_name.lower()]['type']
+        prop_type = convert_to_java_type(prop_type)
+        class_code += f'\tpublic {prop_type} get{prop_name}() {{\n'
+        class_code += f'\t\treturn {prop_name};\n\t}}\n\n'
+        class_code += f'\tpublic void set{prop_name}({prop_type} {prop_name}) {{\n'
+        class_code += f'\t\tthis.{prop_name} = {prop_name};\n\t}}\n\n'
+
+    class_code += '}'
+
+    return class_code
+
+
+def convert_to_java_type(prop_type):
+    if prop_type == 'string':
+        return 'String'
+    elif prop_type == 'number':
+        return 'double'
+    elif prop_type == 'integer':
+        return 'int'
+    elif prop_type == 'boolean':
+        return 'boolean'
+    else:
+        return 'Object'
+
+
+def generate_pojo_classes(schema):
+    classes = []
+
+    class_name = schema['title']
+    class_details = schema['properties']
+
+    if class_name not in classes:
+        classes.append(class_name)
+        class_code = generate_pojo_class(class_name, class_details)
+        classes.append(class_code)
+
+    for prop_name, prop_details in class_details.items():
+        if prop_details['type'] == 'object':
+            obj_name = prop_name.capitalize()
+            if obj_name not in classes:
+                classes.append(obj_name)
+                obj_code = generate_pojo_class(obj_name, prop_details['properties'])
+                classes.append(obj_code)
+
+    return classes
+
+
+def main():
+    json_schema = '''
+    {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "Company",
+        "type": "object",
+        "properties": {
+            "employee": {
+                "title": "Employee",
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "age": {"type": "integer"},
+                    "email": {"type": "string"}
+                },
+                "required": ["name", "age"]
+            },
+            "address": {
+                "title": "Address",
+                "type": "object",
+                "properties": {
+                    "street": {"type": "string"},
+                    "city": {"type": "string"},
+                    "zip": {"type": "string"}
+                },
+                "required": ["street", "city"]
+            }
+        }
+    }
+    '''
+
+    schema = json.loads(json_schema)
+
+    pojo_classes = generate_pojo_classes(schema)
+
+    for pojo_class in pojo_classes:
+        print(pojo_class)
+        print('\n')
+        
+        
+        
+        
+        
+        
+        from jinja2 import Template
 import json
 
 # JSON schema as a string
