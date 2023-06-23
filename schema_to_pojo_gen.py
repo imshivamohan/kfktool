@@ -1,5 +1,23 @@
 import json
 import re
+import requests
+
+def generate_java_pojos(json_schema):
+    # Remaining code for generating Java POJOs
+
+# Fetch the JSON schema from the server
+response = requests.get('http://schema-registry-server/schema/employee')
+json_schema = response.json()
+
+generated_code = generate_java_pojos(json.dumps(json_schema))
+print(generated_code)
+
+
+
+
+
+import json
+import re
 
 def generate_java_pojos(json_schema):
     java_code = ''
