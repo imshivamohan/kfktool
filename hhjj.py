@@ -1,3 +1,37 @@
+def generate_class_code(class_name, properties):
+    template_str = """
+    public class {{ class_name }} {
+        {% if properties %}
+        {% for prop, prop_schema in properties.items() %}
+        private {{ generate_java_type(prop_schema) }} {{ prop }};
+        {% endfor %}
+
+        // Getters and Setters
+        {% for prop, prop_schema in properties.items() %}
+        public {{ generate_java_type(prop_schema) }} get{{ prop|capitalize }}() {
+            return {{ prop }};
+        }
+
+        public void set{{ prop|capitalize }}({{ generate_java_type(prop_schema) }} {{ prop }}) {
+            this.{{ prop }} = {{ prop }};
+        }
+        {% endfor %}
+        {% endif %}
+    }
+    """
+
+    env = Environment()
+    env.filters["generate_java_type"] = generate_java_type
+    template = env.from_string(template_str)
+    rendered_code = template.render(class_name=class_name, properties=properties)
+
+    return rendered_code
+
+
+
+
+#################
+
 import json
 from jinja2 import Environment, Template
 import requests
