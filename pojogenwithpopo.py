@@ -1,3 +1,197 @@
+import json
+import jinja2
+
+
+def generate_pojo_class(class_name, properties):
+    template = '''public class {{ class_name }} {
+    {% for prop_name, prop_type in properties.items() %}
+        private {{ prop_type }} {{ prop_name }};
+    
+        public {{ prop_type }} get{{ prop_name|capitalize }}() {
+            return {{ prop_name }};
+        }
+    
+        public void set{{ prop_name|capitalize }}({{ prop_type }} {{ prop_name }}) {
+            this.{{ prop_name }} = {{ prop_name }};
+        }
+    {% endfor %}
+    }
+    '''
+
+    return jinja2.Template(template).render(class_name=class_name, properties=properties)
+
+
+def generate_pojos(schema):
+    pojo_classes = []
+    definitions = schema.get('definitions', {})
+    
+    for class_name, class_schema in definitions.items():
+        properties = class_schema.get('properties', {})
+        pojo_class = generate_pojo_class(class_name, properties)
+        pojo_classes.append(pojo_class)
+    
+    return pojo_classes
+
+
+def save_pojos_to_files(pojos):
+    for pojo_class in pojos:
+        class_name = pojo_class.split('\n')[0].split(' ')[-1]
+        file_name = class_name + '.java'
+        
+        with open(file_name, 'w') as file:
+            file.write(pojo_class)
+
+
+if __name__ == '__main__':
+    with open('schema.json', 'r') as file:
+        schema_data = json.load(file)
+    
+    pojos = generate_pojos(schema_data)
+    save_pojos_to_files(pojos)
+
+
+
+########################
+
+import json
+import re
+
+class_template = """
+public class {class_name} {{
+{properties}
+}}
+"""
+
+def convert_to_valid_identifier(name):
+    # Remove special characters and spaces
+    name = re.sub(r"[^\w]", "", name)
+    # Handle leading digits by appending underscore
+    if name[0].isdigit():
+        name = "_" + name
+    return name
+
+def generate_java_code(schema, class_name):
+    properties = ""
+
+    for property_name, property_info in schema.items():
+        # Convert property name to valid Java identifier
+        java_property_name = convert_to_valid_identifier(property_name)
+
+        if property_info["type"] == "object":
+            nested_class_name = property_name.capitalize()
+            nested_class_code = generate_java_code(property_info["properties"], nested_class_name)
+            properties += f"  public {nested_class_name} {java_property_name};\n\n"
+            properties += nested_class_code  # Add nested class code
+        elif property_info["type"] == "array":
+            if "items" in property_info:
+                if "type" in property_info["items"]:
+                    array_type = property_info["items"]["type"]
+                    if array_type == "object":
+                        nested_class_name = property_name.capitalize()
+                        nested_class_code = generate_java_code(property_info["items"]["properties"], nested_class_name)
+                        properties += f"  public {nested_class_name}[] {java_property_name};\n\n"
+                        properties += nested_class_code  # Add nested class code
+                    else:
+                        properties += f"  public {array_type}[] {java_property_name};\n\n"
+                        # Generate separate class for array items
+                        array_item_class_name = property_name.capitalize() + "Item"
+                        array_item_properties = {property_name: property_info["items"]}
+                        array_item_code = generate_java_code(array_item_properties, array_item_class_name)
+                        properties += array_item_code
+                else:
+                    properties += f"  public Object[] {java_property_name};\n\n"
+            else:
+                properties += f"  public Object[] {java_property_name};\n\n"
+        else:
+            property_type = property_info["type"]
+            properties += f"  public {property_type} {java_property_name};\n\n"
+
+    return class_template.format(class_name=class_name, properties=properties)
+
+def generate_java_pojos(json_schema):
+    schema = json.loads(json_schema)
+    java_code = generate_java_code(schema["properties"], "Root")
+    with open("Root.java", "w") as file:
+        file.write(java_code)
+
+# Example JSON schema
+json_schema = """
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "age": {
+      "type": "integer"
+    },
+    "address": {
+      "type": "object",
+      "properties": {
+        "street": {
+          "type": "string"
+        },
+        "city": {
+          "type": "string"
+        }
+      }
+    },
+    "phone_numbers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "number": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+"""
+
+generate_java_pojos(json_schema)
+#######################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 from jinja2 import Environment, Template
 import requests
 
