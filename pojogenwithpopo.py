@@ -47,27 +47,110 @@ def generate_java_code(schema, class_name):
                     properties += f"  public Object[] {java_property_name};\n\n"
             else:
                 properties += f"  public Object[] {java_property_name};\n\n"
+        elif "oneOf" in property_info:
+            oneof_classes = []
+            for oneof_property in property_info["oneOf"]:
+                ref_id = oneof_property["$ref"].split("/")[-1]
+                oneof_class_name = convert_to_valid_identifier(ref_id.capitalize())
+                oneof_class_code = generate_java_code(definitions[ref_id]["properties"], oneof_class_name)
+                oneof_classes.append(oneof_class_name)
+                properties += oneof_class_code
+            properties += f"  public OneOf<{', '.join(oneof_classes)}> {java_property_name};\n\n"
         else:
             property_type = property_info.get("type", "Object")
             properties += f"  public {property_type} {java_property_name};\n\n"
 
     return class_template.format(class_name=class_name, properties=properties)
 
+
 def generate_java_pojos(json_schema):
     schema = json.loads(json_schema)
+    definitions = schema.get("definitions", {})
     java_code = generate_java_code(schema["properties"], "Root")
     with open("Root.java", "w") as file:
         file.write(java_code)
+
 
 # Example JSON schema
 json_schema = """
 {
   "type": "object",
   "properties": {
-    "name": {
-      "type": "string"
+    "header": {
+      "$ref": "#/definitions/Header"
     },
-    "age
+    "payload": {
+      "$ref": "#/definitions/Payload"
+    }
+  },
+  "definitions": {
+    "Header": {
+      "type": "object",
+      "properties": {
+        "publishername": {
+          "type": "string"
+        },
+        "eventname": {
+          "type": "string"
+        }
+      },
+      "required": ["publishername", "eventname"]
+    },
+    "Payload": {
+      "type": "object",
+      "properties": {
+        "applicationinitiated": {
+          "oneOf": [
+            {"$ref": "#/definitions/ApplicationInitiatedType1"},
+            {"$ref": "#/definitions/ApplicationInitiatedType2"},
+            {"$ref": "#/definitions/ApplicationInitiatedType3"}
+          ]
+        }
+      }
+    },
+    "ApplicationInitiatedType1": {
+      "type": "object",
+      "properties": {
+        "property1": {
+          "type": "string",
+          "enum": ["value1", "value2", "value3"]
+        },
+        "nestedobj": {
+          "$ref": "#/definitions/NestedObject"
+        }
+      }
+    },
+    "ApplicationInitiatedType2": {
+      "type": "object",
+      "properties": {
+        "property2": {
+          "type": "string",
+          "enum": ["value4", "value5", "value6"]
+        }
+      }
+    },
+    "ApplicationInitiatedType3": {
+      "type": "object",
+      "properties": {
+        "property3": {
+          "type": "string",
+          "enum": ["value7", "value8", "value9"]
+        }
+      }
+    },
+    "NestedObject": {
+      "type": "object",
+      "properties": {
+        "nestedproperty": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+"""
+
+generate_java_pojos(json_schema)
 
 #######################
 
