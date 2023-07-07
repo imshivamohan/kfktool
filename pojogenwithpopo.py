@@ -2,6 +2,16 @@ import json
 import re
 
 class_template = """
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonTypeName;
+import lombok.*;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@ToString
+@JsonTypeName("{class_name}")
 public class {class_name} {{
 {properties}
 }}
@@ -22,43 +32,30 @@ def generate_java_code(schema, class_name):
         # Convert property name to valid Java identifier
         java_property_name = convert_to_valid_identifier(property_name)
 
-        if "type" in property_info and property_info["type"] == "object":
-            nested_class_name = property_name.capitalize()
-            nested_class_code = generate_java_code(property_info["properties"], nested_class_name)
-            properties += f"  public {nested_class_name} {java_property_name};\n\n"
-            properties += nested_class_code  # Add nested class code
-        elif "type" in property_info and property_info["type"] == "array":
-            if "items" in property_info:
-                if "type" in property_info["items"]:
-                    array_type = property_info["items"]["type"]
-                    if array_type == "object":
-                        nested_class_name = property_name.capitalize()
-                        nested_class_code = generate_java_code(property_info["items"]["properties"], nested_class_name)
-                        properties += f"  public {nested_class_name}[] {java_property_name};\n\n"
-                        properties += nested_class_code  # Add nested class code
-                    else:
-                        properties += f"  public {array_type}[] {java_property_name};\n\n"
-                        # Generate separate class for array items
-                        array_item_class_name = property_name.capitalize() + "Item"
-                        array_item_properties = {property_name: property_info["items"]}
-                        array_item_code = generate_java_code(array_item_properties, array_item_class_name)
-                        properties += array_item_code
-                else:
-                    properties += f"  public Object[] {java_property_name};\n\n"
-            else:
-                properties += f"  public Object[] {java_property_name};\n\n"
+        if "$ref" in property_info:
+            ref = property_info["$ref"]
+            ref_id = ref.split("/")[-1]
+            ref_class_name = convert_to_valid_identifier(ref_id.capitalize())
+            properties += f"  @JsonProperty(\"{property_name}\")\n"
+            properties += f"  private {ref_class_name} {java_property_name};\n\n"
+            nested_class_code = generate_java_code(definitions[ref_id]["properties"], ref_class_name)
+            properties += nested_class_code
         elif "oneOf" in property_info:
             oneof_classes = []
             for oneof_property in property_info["oneOf"]:
-                ref_id = oneof_property["$ref"].split("/")[-1]
-                oneof_class_name = convert_to_valid_identifier(ref_id.capitalize())
-                oneof_class_code = generate_java_code(definitions[ref_id]["properties"], oneof_class_name)
-                oneof_classes.append(oneof_class_name)
+                ref = oneof_property["$ref"]
+                ref_id = ref.split("/")[-1]
+                ref_class_name = convert_to_valid_identifier(ref_id.capitalize())
+                oneof_class_code = generate_java_code(definitions[ref_id]["properties"], ref_class_name)
+                oneof_classes.append(ref_class_name)
                 properties += oneof_class_code
-            properties += f"  public OneOf<{', '.join(oneof_classes)}> {java_property_name};\n\n"
+            properties += f"  @JsonProperty(\"{property_name}\")\n"
+            properties += f"  private OneOf<{', '.join(oneof_classes)}> {java_property_name};\n\n"
         else:
             property_type = property_info.get("type", "Object")
-            properties += f"  public {property_type} {java_property_name};\n\n"
+            required = property_name in schema.get("required", [])
+            properties += f"  @JsonProperty(value = \"{property_name}\", required = {str(required).lower()})\n"
+            properties += f"  private {property_type} {java_property_name};\n\n"
 
     return class_template.format(class_name=class_name, properties=properties)
 
@@ -66,10 +63,13 @@ def generate_java_code(schema, class_name):
 def generate_java_pojos(json_schema):
     schema = json.loads(json_schema)
     definitions = schema.get("definitions", {})
-    java_code = generate_java_code(schema["properties"], "Root")
-    with open("Root.java", "w") as file:
+    java_code = generate_java_code(definitions["Header"]["properties"], "Header")
+    java_code += generate_java_code(definitions["Payload"]["properties"], "Payload")
+    for definition_name, definition_properties in definitions.items():
+        if definition_name.startswith("ApplicationInitiatedType"):
+            java_code += generate_java_code(definition_properties["properties"], definition_name)
+    with open("Header.java", "w") as file:
         file.write(java_code)
-
 
 # Example JSON schema
 json_schema = """
@@ -151,6 +151,7 @@ json_schema = """
 """
 
 generate_java_pojos(json_schema)
+
 
 #######################
 
