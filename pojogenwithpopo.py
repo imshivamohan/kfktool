@@ -1,59 +1,4 @@
 import json
-import jinja2
-
-
-def generate_pojo_class(class_name, properties):
-    template = '''public class {{ class_name }} {
-    {% for prop_name, prop_type in properties.items() %}
-        private {{ prop_type }} {{ prop_name }};
-    
-        public {{ prop_type }} get{{ prop_name|capitalize }}() {
-            return {{ prop_name }};
-        }
-    
-        public void set{{ prop_name|capitalize }}({{ prop_type }} {{ prop_name }}) {
-            this.{{ prop_name }} = {{ prop_name }};
-        }
-    {% endfor %}
-    }
-    '''
-
-    return jinja2.Template(template).render(class_name=class_name, properties=properties)
-
-
-def generate_pojos(schema):
-    pojo_classes = []
-    definitions = schema.get('definitions', {})
-    
-    for class_name, class_schema in definitions.items():
-        properties = class_schema.get('properties', {})
-        pojo_class = generate_pojo_class(class_name, properties)
-        pojo_classes.append(pojo_class)
-    
-    return pojo_classes
-
-
-def save_pojos_to_files(pojos):
-    for pojo_class in pojos:
-        class_name = pojo_class.split('\n')[0].split(' ')[-1]
-        file_name = class_name + '.java'
-        
-        with open(file_name, 'w') as file:
-            file.write(pojo_class)
-
-
-if __name__ == '__main__':
-    with open('schema.json', 'r') as file:
-        schema_data = json.load(file)
-    
-    pojos = generate_pojos(schema_data)
-    save_pojos_to_files(pojos)
-
-
-
-########################
-
-import json
 import re
 
 class_template = """
@@ -77,12 +22,12 @@ def generate_java_code(schema, class_name):
         # Convert property name to valid Java identifier
         java_property_name = convert_to_valid_identifier(property_name)
 
-        if property_info["type"] == "object":
+        if "type" in property_info and property_info["type"] == "object":
             nested_class_name = property_name.capitalize()
             nested_class_code = generate_java_code(property_info["properties"], nested_class_name)
             properties += f"  public {nested_class_name} {java_property_name};\n\n"
             properties += nested_class_code  # Add nested class code
-        elif property_info["type"] == "array":
+        elif "type" in property_info and property_info["type"] == "array":
             if "items" in property_info:
                 if "type" in property_info["items"]:
                     array_type = property_info["items"]["type"]
@@ -103,7 +48,7 @@ def generate_java_code(schema, class_name):
             else:
                 properties += f"  public Object[] {java_property_name};\n\n"
         else:
-            property_type = property_info["type"]
+            property_type = property_info.get("type", "Object")
             properties += f"  public {property_type} {java_property_name};\n\n"
 
     return class_template.format(class_name=class_name, properties=properties)
@@ -122,39 +67,8 @@ json_schema = """
     "name": {
       "type": "string"
     },
-    "age": {
-      "type": "integer"
-    },
-    "address": {
-      "type": "object",
-      "properties": {
-        "street": {
-          "type": "string"
-        },
-        "city": {
-          "type": "string"
-        }
-      }
-    },
-    "phone_numbers": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string"
-          },
-          "number": {
-            "type": "string"
-          }
-        }
-      }
-    }
-  }
-}
-"""
+    "age
 
-generate_java_pojos(json_schema)
 #######################
 
 
