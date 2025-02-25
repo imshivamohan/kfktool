@@ -1,0 +1,306 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kafka-alerts
+  namespace: monitoring  # Change to your Prometheus namespace
+spec:
+  groups:
+    - name: kafka.rules
+      interval: 30s
+      rules:
+
+        ## 🔹 Broker Health & Performance Alerts
+        - alert: KafkaBrokerDown
+          expr: up{job="kafka"} == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Kafka Broker Down"
+            description: "Kafka broker {{ $labels.instance }} is down."
+
+        - alert: HighKafkaMessageInRate
+          expr: rate(kafka_server_brokertopicmetrics_messagesin_total[5m]) > 20000  # Increased threshold
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High Kafka Message Rate"
+            description: "Kafka broker {{ $labels.instance }} is processing over 20,000 messages per second."
+
+        - alert: KafkaBrokerUnderReplicatedPartitions
+          expr: kafka_server_replicamanager_underreplicatedpartitions > 5  # Increased threshold
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Kafka Broker Under-Replicated Partitions"
+            description: "Kafka broker {{ $labels.instance }} has {{ $value }} under-replicated partitions."
+
+        - alert: KafkaRequestQueueTimeHigh
+          expr: avg_over_time(kafka_network_requestmetrics_requestqueue_time_avg[5m]) > 500  # Added request queue monitoring
+          for: 3m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Kafka Request Queue Time High"
+            description: "Request queue time is high ({{ $value }} ms) on broker {{ $labels.instance }}."
+
+        ## 🔹 Topic & Partition Alerts
+        - alert: KafkaTopicHighLag
+          expr: kafka_server_fetcherlagmetrics_currentlag > 100000  # Increased threshold
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Kafka Topic High Lag"
+            description: "Topic {{ $labels.topic }} has a consumer lag of {{ $value }} messages."
+
+        - alert: KafkaPartitionOffline
+          expr: kafka_server_replicamanager_offlinereplicascount > 2  # Adjusted severity threshold
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Kafka Partition Offline"
+            description: "Broker {{ $labels.instance }} has {{ $value }} offline partitions."
+
+        ## 🔹 Producer Alerts
+        - alert: KafkaProducerHighLatency
+          expr: avg_over_time(kafka_producer_producerrequestlatency_avg[5m]) > 800  # Increased from 500ms
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Kafka Producer High Latency"
+            description: "Producer request latency is {{ $value }} ms."
+
+        - alert: KafkaProducerThrottling
+          expr: rate(kafka_producer_producer_throttle_time_avg[5m]) > 100  # Added throttling metric
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Kafka Producer Throttling Detected"
+            description: "Kafka broker {{ $labels.instance }} is throttling producer requests."
+
+        - alert: KafkaProducerErrorRateHigh
+          expr: rate(kafka_producer_producererrorrate[5m]) > 0.03  # Lowered threshold for early detection
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Kafka Producer Error Rate High"
+            description: "Producer error rate exceeded 3% on broker {{ $labels.instance }}."
+
+        ## 🔹 Consumer Alerts
+        - alert: KafkaConsumerLagHigh
+          expr: kafka_consumer_records_lag_max > 200000  # Increased threshold
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Kafka Consumer Lag High"
+            description: "Consumer group {{ $labels.group }} has a lag of {{ $value }} messages."
+
+        - alert: KafkaConsumerGroupNotConsuming
+          expr: kafka_consumer_records_consumed_rate == 0
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Kafka Consumer Group Not Consuming"
+            description: "Consumer group {{ $labels.group }} is not consuming messages."
+
+        ## 🔹 Controller & JVM Alerts
+        - alert: KafkaUncleanLeaderElections
+          expr: rate(kafka_controller_unclean_leaderelections_total[5m]) > 1  # Increased threshold
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Kafka Unclean Leader Election"
+            description: "Unclean leader election detected in Kafka."
+
+        - alert: KafkaPreferredReplicaImbalance
+          expr: kafka_controller_preferredreplicaimbalance > 2  # Increased threshold
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Kafka Preferred Replica Imbalance"
+            description: "Kafka cluster has {{ $value }} imbalanced preferred replicas."
+
+        - alert: KafkaJVMHeapUsageHigh
+          expr: (kafka_jvm_memory_used_bytes{area="heap"} / kafka_jvm_memory_max_bytes{area="heap"}) > 0.8  # New JVM metric
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Kafka JVM Heap Usage High"
+            description: "Kafka broker {{ $labels.instance }} is using more than 80% of its heap memory."
+
+        ## 🔹 Resource Usage Alerts
+        - alert: KafkaHighCPUUsage
+          expr: rate(container_cpu_usage_seconds_total{container="kafka"}[5m]) > 0.7  # Reduced threshold
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Kafka High CPU Usage"
+            description: "Kafka container is using more than 70% CPU."
+
+        - alert: KafkaHighMemoryUsage
+          expr: container_memory_usage_bytes{container="kafka"} > 1.2e+10  # Reduced to 12GB
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Kafka High Memory Usage"
+            description: "Kafka memory usage exceeded 12GB."
+
+        - alert: KafkaDiskUsageHigh
+          expr: container_fs_usage_bytes{container="kafka"} > 7e+10  # Reduced to 70GB
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Kafka Disk Usage High"
+            description: "Kafka broker {{ $labels.instance }} is using more than 70GB disk space."
+###########################################
+
+
+lowercaseOutputName: true
+rules:
+  # Broker Metrics (20)
+  - pattern: "kafka.server.BrokerTopicMetrics.MessagesInPerSec"
+  - pattern: "kafka.server.BrokerTopicMetrics.BytesInPerSec"
+  - pattern: "kafka.server.BrokerTopicMetrics.BytesOutPerSec"
+  - pattern: "kafka.server.BrokerTopicMetrics.TotalProduceRequestsPerSec"
+  - pattern: "kafka.server.BrokerTopicMetrics.TotalFetchRequestsPerSec"
+  - pattern: "kafka.server.BrokerTopicMetrics.ReplicationBytesInPerSec"
+  - pattern: "kafka.server.BrokerTopicMetrics.ReplicationBytesOutPerSec"
+  - pattern: "kafka.server.BrokerTopicMetrics.LeaderCount"
+  - pattern: "kafka.server.BrokerTopicMetrics.PartitionCount"
+  - pattern: "kafka.server.ReplicaManager.LeaderElectionRateAndTimeMs"
+  - pattern: "kafka.server.ReplicaManager.PartitionCount"
+  - pattern: "kafka.server.ReplicaManager.UnderReplicatedPartitions"
+  - pattern: "kafka.server.ReplicaManager.OfflinePartitionsCount"
+  - pattern: "kafka.server.ReplicaManager.ActiveControllerCount"
+  - pattern: "kafka.server.ReplicaManager.ReplicaFetcherManagerQueueSize"
+  - pattern: "kafka.server.ReplicaManager.MaxLag"
+  - pattern: "kafka.server.ReplicaManager.MinFetchRate"
+  - pattern: "kafka.server.ReplicaManager.MaxFetchRate"
+  - pattern: "kafka.network.RequestMetrics.RequestsPerSec"
+  - pattern: "kafka.network.RequestMetrics.RequestQueueSize"
+
+  # Consumer Metrics (20)
+  - pattern: "kafka.consumer.FetchManager.BytesConsumedRate"
+  - pattern: "kafka.consumer.FetchManager.FetchLatencyAvg"
+  - pattern: "kafka.consumer.FetchManager.FetchLatencyMax"
+  - pattern: "kafka.consumer.FetchManager.RecordsConsumedRate"
+  - pattern: "kafka.consumer.FetchManager.RecordsLagMax"
+  - pattern: "kafka.consumer.FetchManager.RecordsLagAvg"
+  - pattern: "kafka.consumer.FetchManager.PartitionsAssigned"
+  - pattern: "kafka.consumer.FetchManager.PartitionsRevoked"
+  - pattern: "kafka.consumer.FetchManager.PartitionsLost"
+  - pattern: "kafka.consumer.ConsumerMetrics.CommitLatencyAvg"
+  - pattern: "kafka.consumer.ConsumerMetrics.CommitLatencyMax"
+  - pattern: "kafka.consumer.ConsumerMetrics.HeartbeatRate"
+  - pattern: "kafka.consumer.ConsumerMetrics.HeartbeatLatencyAvg"
+  - pattern: "kafka.consumer.ConsumerMetrics.HeartbeatLatencyMax"
+  - pattern: "kafka.consumer.ConsumerMetrics.JoinTimeAvg"
+  - pattern: "kafka.consumer.ConsumerMetrics.SyncTimeAvg"
+  - pattern: "kafka.consumer.ConsumerMetrics.AssignmentSizeAvg"
+  - pattern: "kafka.consumer.ConsumerMetrics.BytesFetchedRate"
+  - pattern: "kafka.consumer.ConsumerMetrics.RebalanceRate"
+  - pattern: "kafka.consumer.ConsumerMetrics.RebalanceLatencyAvg"
+
+  # Producer Metrics (20)
+  - pattern: "kafka.producer.ProducerMetrics.RequestsPerSec"
+  - pattern: "kafka.producer.ProducerMetrics.RecordQueueTimeAvg"
+  - pattern: "kafka.producer.ProducerMetrics.RecordQueueTimeMax"
+  - pattern: "kafka.producer.ProducerMetrics.RecordSendRate"
+  - pattern: "kafka.producer.ProducerMetrics.RecordErrorRate"
+  - pattern: "kafka.producer.ProducerMetrics.RecordRetryRate"
+  - pattern: "kafka.producer.ProducerMetrics.BatchSizeAvg"
+  - pattern: "kafka.producer.ProducerMetrics.CompressionRateAvg"
+  - pattern: "kafka.producer.ProducerMetrics.IoWaitTimeNsAvg"
+  - pattern: "kafka.producer.ProducerMetrics.RequestLatencyAvg"
+  - pattern: "kafka.producer.ProducerMetrics.RequestLatencyMax"
+  - pattern: "kafka.producer.ProducerMetrics.ResponseQueueTimeAvg"
+  - pattern: "kafka.producer.ProducerMetrics.ResponseQueueTimeMax"
+  - pattern: "kafka.producer.ProducerMetrics.ProduceThrottleTimeAvg"
+  - pattern: "kafka.producer.ProducerMetrics.ProduceThrottleTimeMax"
+  - pattern: "kafka.producer.ProducerMetrics.TransactionAbortTimeAvg"
+  - pattern: "kafka.producer.ProducerMetrics.TransactionAbortTimeMax"
+  - pattern: "kafka.producer.ProducerMetrics.BytesProducedRate"
+  - pattern: "kafka.producer.ProducerMetrics.OutgoingByteRate"
+  - pattern: "kafka.producer.ProducerMetrics.BatchesPerSec"
+
+  # JVM & System Metrics (20)
+  - pattern: "java.lang:type=Memory.HeapMemoryUsage.used"
+  - pattern: "java.lang:type=Memory.NonHeapMemoryUsage.used"
+  - pattern: "java.lang:type=Memory.HeapMemoryUsage.max"
+  - pattern: "java.lang:type=Memory.HeapMemoryUsage.committed"
+  - pattern: "java.lang:type=GarbageCollector.G1 Young Generation.CollectionCount"
+  - pattern: "java.lang:type=GarbageCollector.G1 Young Generation.CollectionTime"
+  - pattern: "java.lang:type=GarbageCollector.G1 Old Generation.CollectionCount"
+  - pattern: "java.lang:type=GarbageCollector.G1 Old Generation.CollectionTime"
+  - pattern: "java.lang:type=Threading.ThreadCount"
+  - pattern: "java.lang:type=OperatingSystem.CpuLoad"
+  - pattern: "java.lang:type=OperatingSystem.SystemCpuLoad"
+  - pattern: "java.lang:type=OperatingSystem.ProcessCpuLoad"
+  - pattern: "java.lang:type=OperatingSystem.AvailableProcessors"
+  - pattern: "java.lang:type=OperatingSystem.TotalPhysicalMemorySize"
+  - pattern: "java.lang:type=OperatingSystem.FreePhysicalMemorySize"
+  - pattern: "java.lang:type=OperatingSystem.TotalSwapSpaceSize"
+  - pattern: "java.lang:type=OperatingSystem.FreeSwapSpaceSize"
+  - pattern: "java.lang:type=OperatingSystem.SystemLoadAverage"
+  - pattern: "disk_usage.BytesUsed"
+  - pattern: "disk_usage.BytesAvailable"
+ # ✅ 🔥 **Added Consumer Lag Metrics (20)**
+  - pattern: "kafka.consumer.FetchManager.RecordsLagMax"   # Maximum consumer lag
+  - pattern: "kafka.consumer.FetchManager.RecordsLagAvg"   # Average consumer lag
+  - pattern: "kafka.consumer.ConsumerMetrics.CommitLatencyAvg"
+  - pattern: "kafka.consumer.ConsumerMetrics.HeartbeatRate"
+  - pattern: "kafka.consumer.ConsumerMetrics.RebalanceRate"
+  - pattern: "kafka.consumer.ConsumerMetrics.AssignmentSizeAvg"
+  - pattern: "kafka.consumer.ConsumerMetrics.PartitionsAssigned"
+  - pattern: "kafka.consumer.ConsumerMetrics.PartitionsRevoked"
+  - pattern: "kafka.consumer.ConsumerMetrics.PartitionsLost"
+  - pattern: "kafka.consumer.FetchManager.FetchLatencyAvg"
+  lowercaseOutputName: true
+rules:
+  # ✅ **Broker & Cluster Health Metrics**
+  - pattern: "kafka.controller.KafkaController.ActiveControllerCount"  # Ensure only 1 active controller
+  - pattern: "kafka.controller.KafkaController.OfflinePartitionsCount"  # Detect partition failures
+  - pattern: "kafka.server.ReplicaManager.UnderMinIsrPartitions"  # Partitions with insufficient replicas
+  - pattern: "kafka.server.ReplicaFetcherManager.MaxLag"  # Max lag between leader and follower
+
+  # ✅ **Producer Metrics**
+  - pattern: "kafka.producer.ProducerMetrics.RecordErrorRate"  # Failed messages
+  - pattern: "kafka.producer.ProducerMetrics.RecordRetryRate"  # Retries indicate backpressure
+  - pattern: "kafka.producer.ProducerMetrics.RequestLatencyAvg"  # Producer latency
+
+  # ✅ **Consumer Metrics (Including Consumer Lag)**
+  - pattern: "kafka.consumer.FetchManager.RecordsLagMax"  # Max consumer lag
+  - pattern: "kafka.consumer.FetchManager.RecordsLagAvg"  # Avg consumer lag
+  - pattern: "kafka.consumer.ConsumerMetrics.FetchRate"  # Active consumer fetches
+  - pattern: "kafka.consumer.ConsumerMetrics.RebalanceRate"  # High rate = unstable consumer groups
+  - pattern: "kafka.consumer.ConsumerMetrics.AssignmentSizeAvg"  # Avg partitions per consumer
+  - pattern: "kafka.consumer.FetchManager.FetchSizeAvg"  # Avg fetch size
+
+  # ✅ **Topic & Partition Monitoring**
+  - pattern: "kafka.log.LogFlushRateAndTimeMs"  # Log flush performance
+  - pattern: "kafka.log.LogAppendRateAndTimeMs"  # Kafka write speed
+  - pattern: "kafka.log.SegmentSizeAvgBytes"  # Avg partition size
+
+  # ✅ **JVM & System Metrics**
+  - pattern: "java.lang:type=Memory.HeapMemoryUsage.used"  # Kafka memory usage
+  - pattern: "java.lang:type=GarbageCollector.G1 Young Generation.CollectionCount"  # Young GC count
+  - pattern: "java.lang:type=GarbageCollector.G1 Old Generation.CollectionCount"  # Old GC count
+  - pattern: "java.lang:type=Threading.ThreadCount"  # Kafka thread count
+  - pattern: "java.lang:type=OperatingSystem.SystemCpuLoad"  # System CPU usage
+  - pattern: "java.lang:type=OperatingSystem.ProcessCpuLoad"  # Kafka-specific CPU usage
+  - pattern: "disk_usage.BytesAvailable"  # Available disk space
