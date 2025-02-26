@@ -1,0 +1,89 @@
+lowercaseOutputName: true
+
+rules:
+  # ✅ Broker Metrics (Only Required Metrics)
+  - pattern: "kafka.server<type=BrokerTopicMetrics, name=(MessagesInPerSec|BytesInPerSec|BytesOutPerSec)>"
+    name: kafka_broker_$2
+    type: GAUGE
+    labels:
+      broker: "$1"
+
+  # ❌ Block all other kafka.server metrics
+  - pattern: "kafka.server<.*>"
+    action: "deny"
+
+  # ✅ Consumer Metrics (Lag & Fetch Performance)
+  - pattern: "kafka.consumer<type=FetchManager, name=(RecordsLagMax|RecordsLagAvg|BytesConsumedRate), topic=(.+), partition=(.+)>"
+    name: kafka_consumer_$2
+    type: GAUGE
+    labels:
+      topic: "$3"
+      partition: "$4"
+
+  - pattern: "kafka.consumer<type=ConsumerMetrics, name=CommitLatencyAvg>"
+    name: kafka_consumer_commit_latency_seconds
+    type: GAUGE
+    valueFactor: 0.001  # Convert ms → seconds
+
+  - pattern: "kafka.consumer<type=ConsumerMetrics, name=BytesFetchedRate>"
+    name: kafka_consumer_bytes_fetched_mb_per_sec
+    type: GAUGE
+    valueFactor: 1e-6  # Convert bytes → MB
+
+  # ❌ Block all other kafka.consumer metrics
+  - pattern: "kafka.consumer<.*>"
+    action: "deny"
+
+  # ✅ Producer Metrics
+  - pattern: "kafka.producer<type=ProducerMetrics, name=RequestLatencyAvg>"
+    name: kafka_producer_request_latency_seconds
+    type: GAUGE
+    valueFactor: 0.001  # Convert ms → seconds
+
+  - pattern: "kafka.producer<type=ProducerMetrics, name=BytesProducedRate>"
+    name: kafka_producer_bytes_produced_mb_per_sec
+    type: GAUGE
+    valueFactor: 1e-6  # Convert bytes → MB
+
+  # ❌ Block all other kafka.producer metrics
+  - pattern: "kafka.producer<.*>"
+    action: "deny"
+
+  # ✅ JVM & System Metrics (Only Required)
+  - pattern: "java.lang<type=Memory, name=HeapMemoryUsage.used>"
+    name: jvm_memory_heap_used_mb
+    type: GAUGE
+    valueFactor: 1e-6  # Convert bytes → MB
+
+  - pattern: "java.lang<type=GarbageCollector, name=(G1 Young Generation|G1 Old Generation)>(CollectionTime)"
+    name: jvm_gc_$2_seconds
+    type: GAUGE
+    valueFactor: 0.001  # Convert ms → seconds
+
+  - pattern: "java.lang<type=OperatingSystem, name=ProcessCpuLoad>"
+    name: os_process_cpu_load_percentage
+    type: GAUGE
+    valueFactor: 100  # Convert fraction (0-1) → percentage
+
+  # ❌ Block all other JVM and System metrics
+  - pattern: "java.lang<.*>"
+    action: "deny"
+
+  # ✅ Disk Usage
+  - pattern: "disk_usage<type=DiskStats, name=BytesUsed>"
+    name: disk_used_gb
+    type: GAUGE
+    valueFactor: 1e-9  # Convert bytes → GB
+
+  - pattern: "disk_usage<type=DiskStats, name=BytesAvailable>"
+    name: disk_available_gb
+    type: GAUGE
+    valueFactor: 1e-9  # Convert bytes → GB
+
+  # ❌ Block all other disk_usage metrics
+  - pattern: "disk_usage<.*>"
+    action: "deny"
+
+  # ❌ Drop all other metrics
+  - pattern: ".*"
+    action: "deny"
