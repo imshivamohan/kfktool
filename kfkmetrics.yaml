@@ -337,3 +337,15 @@ rules:
   # ❌ **Drop all other metrics**
   - pattern: ".*"
     action: "deny"
+
+    #############
+
+      # ✅ Enable caching for performance optimization
+  - cache: true 
+
+  # ✅ Kafka Broker Metrics
+  - labels:
+      name: kafka_$1_$2_$3
+    pattern: kafka.(server)<type=(BrokerTopicMetrics), name=(MessagesInPerSec|BytesInPerSec|BytesOutPerSec|TotalProduceRequestsPerSec|TotalFetchRequestsPerSec|ReplicationBytesInPerSec|ReplicationBytesOutPerSec|LeaderCount|PartitionCount)><>Value
+    type: GAUGE
+    valueFactor: "1"
