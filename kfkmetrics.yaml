@@ -304,3 +304,36 @@ rules:
   - pattern: "java.lang:type=OperatingSystem.SystemCpuLoad"  # System CPU usage
   - pattern: "java.lang:type=OperatingSystem.ProcessCpuLoad"  # Kafka-specific CPU usage
   - pattern: "disk_usage.BytesAvailable"  # Available disk space
+
+
+###################
+lowercaseOutputName: true
+rules:
+  # ✅ **Broker Metrics**
+  - pattern: "kafka.server<type=BrokerTopicMetrics, name=(MessagesInPerSec|BytesInPerSec|BytesOutPerSec|TotalProduceRequestsPerSec|TotalFetchRequestsPerSec|ReplicationBytesInPerSec|ReplicationBytesOutPerSec|LeaderCount|PartitionCount)>"
+  - pattern: "kafka.server<type=ReplicaManager, name=(LeaderElectionRateAndTimeMs|PartitionCount|UnderReplicatedPartitions|OfflinePartitionsCount|ActiveControllerCount|ReplicaFetcherManagerQueueSize|MaxLag|MinFetchRate|MaxFetchRate)>"
+  - pattern: "kafka.network<type=RequestMetrics, name=RequestsPerSec, request=(FetchConsumer|Produce)>"
+
+  # ✅ **Consumer Metrics (Including Lag)**
+  - pattern: "kafka.consumer<type=FetchManager, name=(BytesConsumedRate|FetchLatencyAvg|FetchLatencyMax|RecordsConsumedRate|RecordsLagMax|RecordsLagAvg|PartitionsAssigned|PartitionsRevoked|PartitionsLost)>"
+  - pattern: "kafka.consumer<type=ConsumerMetrics, name=(CommitLatencyAvg|CommitLatencyMax|HeartbeatRate|HeartbeatLatencyAvg|HeartbeatLatencyMax|JoinTimeAvg|SyncTimeAvg|AssignmentSizeAvg|BytesFetchedRate|RebalanceRate|RebalanceLatencyAvg)>"
+
+  # ✅ **Producer Metrics**
+  - pattern: "kafka.producer<type=ProducerMetrics, name=(RequestsPerSec|RecordQueueTimeAvg|RecordQueueTimeMax|RecordSendRate|RecordErrorRate|RecordRetryRate|BatchSizeAvg|CompressionRateAvg|IoWaitTimeNsAvg|RequestLatencyAvg|RequestLatencyMax|ResponseQueueTimeAvg|ResponseQueueTimeMax|ProduceThrottleTimeAvg|ProduceThrottleTimeMax|TransactionAbortTimeAvg|TransactionAbortTimeMax|BytesProducedRate|OutgoingByteRate|BatchesPerSec)>"
+
+  # ✅ **Topic & Partition Monitoring**
+  - pattern: "kafka.log<type=LogFlushStats, name=LogFlushRateAndTimeMs>"
+  - pattern: "kafka.log<type=LogStats, name=LogAppendRateAndTimeMs>"
+  - pattern: "kafka.log<type=LogSegmentStats, name=SegmentSizeAvgBytes>"
+
+  # ✅ **JVM & System Metrics**
+  - pattern: "java.lang<type=Memory, name=HeapMemoryUsage>.(used|max|committed)"
+  - pattern: "java.lang<type=Memory, name=NonHeapMemoryUsage>.(used)"
+  - pattern: "java.lang<type=GarbageCollector, name=(G1 Young Generation|G1 Old Generation)>(CollectionCount|CollectionTime)"
+  - pattern: "java.lang<type=Threading, name=ThreadCount>"
+  - pattern: "java.lang<type=OperatingSystem, name=(SystemCpuLoad|ProcessCpuLoad|AvailableProcessors|TotalPhysicalMemorySize|FreePhysicalMemorySize|TotalSwapSpaceSize|FreeSwapSpaceSize|SystemLoadAverage)>"
+  - pattern: "disk_usage<type=DiskStats, name=(BytesUsed|BytesAvailable)>"
+
+  # ❌ **Drop all other metrics**
+  - pattern: ".*"
+    action: "deny"
