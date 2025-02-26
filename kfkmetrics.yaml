@@ -425,3 +425,83 @@ rules:
   # ❌ Drop all other metrics
   - pattern: ".*"
     action: "deny"
+
+
+#########
+
+lowercaseOutputName: true
+
+rules:
+  # ✅ **Broker Metrics**
+  - pattern: "kafka.server<type=BrokerTopicMetrics, name=(MessagesInPerSec|BytesInPerSec|BytesOutPerSec|TotalProduceRequestsPerSec|TotalFetchRequestsPerSec|ReplicationBytesInPerSec|ReplicationBytesOutPerSec|LeaderCount|PartitionCount)>"
+    name: kafka_broker_$2
+    type: GAUGE
+
+  - pattern: "kafka.server<type=ReplicaManager, name=(LeaderElectionRateAndTimeMs|PartitionCount|UnderReplicatedPartitions|OfflinePartitionsCount|ActiveControllerCount|ReplicaFetcherManagerQueueSize|MaxLag|MinFetchRate|MaxFetchRate)>"
+    name: kafka_replica_$2
+    type: GAUGE
+
+  - pattern: "kafka.network<type=RequestMetrics, name=RequestsPerSec, request=(FetchConsumer|Produce)>"
+    name: kafka_network_requests_per_sec
+    type: GAUGE
+    labels:
+      request: "$2"
+
+  # ✅ **Consumer Metrics (Including Lag)**
+  - pattern: "kafka.consumer<type=FetchManager, name=(RecordsLagMax|RecordsLagAvg|BytesConsumedRate), topic=(.+), partition=(.+)>"
+    name: kafka_consumer_$2
+    type: GAUGE
+    labels:
+      topic: "$3"
+      partition: "$4"
+
+  - pattern: "kafka.consumer<type=ConsumerMetrics, name=(CommitLatencyAvg|CommitLatencyMax|HeartbeatRate|HeartbeatLatencyAvg|HeartbeatLatencyMax|JoinTimeAvg|SyncTimeAvg|AssignmentSizeAvg|BytesFetchedRate|RebalanceRate|RebalanceLatencyAvg)>"
+    name: kafka_consumer_$2
+    type: GAUGE
+
+  # ✅ **Producer Metrics**
+  - pattern: "kafka.producer<type=ProducerMetrics, name=(RequestsPerSec|RecordQueueTimeAvg|RecordQueueTimeMax|RecordSendRate|RecordErrorRate|RecordRetryRate|BatchSizeAvg|CompressionRateAvg|IoWaitTimeNsAvg|RequestLatencyAvg|RequestLatencyMax|ResponseQueueTimeAvg|ResponseQueueTimeMax|ProduceThrottleTimeAvg|ProduceThrottleTimeMax|TransactionAbortTimeAvg|TransactionAbortTimeMax|BytesProducedRate|OutgoingByteRate|BatchesPerSec)>"
+    name: kafka_producer_$2
+    type: GAUGE
+
+  # ✅ **Topic & Partition Monitoring**
+  - pattern: "kafka.log<type=LogFlushStats, name=LogFlushRateAndTimeMs>"
+    name: kafka_log_flush_rate_time_ms
+    type: GAUGE
+
+  - pattern: "kafka.log<type=LogStats, name=LogAppendRateAndTimeMs>"
+    name: kafka_log_append_rate_time_ms
+    type: GAUGE
+
+  - pattern: "kafka.log<type=LogSegmentStats, name=SegmentSizeAvgBytes>"
+    name: kafka_log_segment_size_avg_bytes
+    type: GAUGE
+
+  # ✅ **JVM & System Metrics**
+  - pattern: "java.lang<type=Memory, name=HeapMemoryUsage>.(used|max|committed)"
+    name: jvm_memory_heap_$2
+    type: GAUGE
+    valueFactor: 1e-6  # Convert bytes → MB
+
+  - pattern: "java.lang<type=Memory, name=NonHeapMemoryUsage>.(used)"
+    name: jvm_memory_nonheap_used
+    type: GAUGE
+    valueFactor: 1e-6  # Convert bytes → MB
+
+  - pattern: "java.lang<type=GarbageCollector, name=(G1 Young Generation|G1 Old Generation)>(CollectionCount|CollectionTime)"
+    name: jvm_gc_$2
+    type: GAUGE
+    valueFactor: 0.001  # Convert ms → seconds
+
+  - pattern: "java.lang<type=Threading, name=ThreadCount>"
+    name: jvm_thread_count
+    type: GAUGE
+
+  - pattern: "java.lang<type=OperatingSystem, name=(SystemCpuLoad|ProcessCpuLoad|AvailableProcessors|TotalPhysicalMemorySize|FreePhysicalMemorySize|TotalSwapSpaceSize|FreeSwapSpaceSize|SystemLoadAverage)>"
+    name: os_$2
+    type: GAUGE
+
+  - pattern: "disk_usage<type=DiskStats, name=(BytesUsed|BytesAvailable)>"
+    name: disk_$2
+    type: GAUGE
+    valueFactor: 1e-9  # Convert bytes → GB
