@@ -1,4 +1,131 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kafka-alerts
+  namespace: kube-system  # Ensure it matches the namespace where Azure Managed Prometheus is deployed
+spec:
+  groups:
+    - name: kafka.rules
+      rules:
+        - alert: KafkaBrokerDown
+          expr: up{job="kafka"} == 0
+          for: 1m
+          annotations:
+            summary: "Kafka Broker Down"
+            description: "Kafka broker {{ $labels.instance }} is down."
 
+        - alert: HighKafkaMessageInRate
+          expr: rate(kafka_server_brokertopicmetrics_messagesin_total[5m]) > 20000
+          for: 2m
+          annotations:
+            summary: "High Kafka Message Rate"
+            description: "Kafka broker {{ $labels.instance }} is processing over 20,000 messages per second."
+
+        - alert: KafkaBrokerUnderReplicatedPartitions
+          expr: kafka_server_replicamanager_underreplicatedpartitions > 5
+          for: 5m
+          annotations:
+            summary: "Kafka Broker Under-Replicated Partitions"
+            description: "Kafka broker {{ $labels.instance }} has {{ $value }} under-replicated partitions."
+
+        - alert: KafkaRequestQueueTimeHigh
+          expr: avg_over_time(kafka_network_requestmetrics_requestqueue_time_avg[5m]) > 500
+          for: 3m
+          annotations:
+            summary: "Kafka Request Queue Time High"
+            description: "Request queue time is high ({{ $value }} ms) on broker {{ $labels.instance }}."
+
+        - alert: KafkaTopicHighLag
+          expr: kafka_server_fetcherlagmetrics_currentlag > 100000
+          for: 5m
+          annotations:
+            summary: "Kafka Topic High Lag"
+            description: "Topic {{ $labels.topic }} has a consumer lag of {{ $value }} messages."
+
+        - alert: KafkaPartitionOffline
+          expr: kafka_server_replicamanager_offlinereplicascount > 2
+          for: 2m
+          annotations:
+            summary: "Kafka Partition Offline"
+            description: "Broker {{ $labels.instance }} has {{ $value }} offline partitions."
+
+        - alert: KafkaProducerHighLatency
+          expr: avg_over_time(kafka_producer_producerrequestlatency_avg[5m]) > 800
+          for: 5m
+          annotations:
+            summary: "Kafka Producer High Latency"
+            description: "Producer request latency is {{ $value }} ms."
+
+        - alert: KafkaProducerThrottling
+          expr: rate(kafka_producer_producer_throttle_time_avg[5m]) > 100
+          for: 2m
+          annotations:
+            summary: "Kafka Producer Throttling Detected"
+            description: "Kafka broker {{ $labels.instance }} is throttling producer requests."
+
+        - alert: KafkaProducerErrorRateHigh
+          expr: rate(kafka_producer_producererrorrate[5m]) > 0.03
+          for: 2m
+          annotations:
+            summary: "Kafka Producer Error Rate High"
+            description: "Producer error rate exceeded 3% on broker {{ $labels.instance }}."
+
+        - alert: KafkaConsumerLagHigh
+          expr: kafka_consumer_records_lag_max > 200000
+          for: 5m
+          annotations:
+            summary: "Kafka Consumer Lag High"
+            description: "Consumer group {{ $labels.group }} has a lag of {{ $value }} messages."
+
+        - alert: KafkaConsumerGroupNotConsuming
+          expr: kafka_consumer_records_consumed_rate == 0
+          for: 10m
+          annotations:
+            summary: "Kafka Consumer Group Not Consuming"
+            description: "Consumer group {{ $labels.group }} is not consuming messages."
+
+        - alert: KafkaUncleanLeaderElections
+          expr: rate(kafka_controller_unclean_leaderelections_total[5m]) > 1
+          for: 1m
+          annotations:
+            summary: "Kafka Unclean Leader Election"
+            description: "Unclean leader election detected in Kafka."
+
+        - alert: KafkaPreferredReplicaImbalance
+          expr: kafka_controller_preferredreplicaimbalance > 2
+          for: 5m
+          annotations:
+            summary: "Kafka Preferred Replica Imbalance"
+            description: "Kafka cluster has {{ $value }} imbalanced preferred replicas."
+
+        - alert: KafkaJVMHeapUsageHigh
+          expr: (kafka_jvm_memory_used_bytes{area="heap"} / kafka_jvm_memory_max_bytes{area="heap"}) > 0.8
+          for: 2m
+          annotations:
+            summary: "Kafka JVM Heap Usage High"
+            description: "Kafka broker {{ $labels.instance }} is using more than 80% of its heap memory."
+
+        - alert: KafkaHighCPUUsage
+          expr: rate(container_cpu_usage_seconds_total{container="kafka"}[5m]) > 0.7
+          for: 2m
+          annotations:
+            summary: "Kafka High CPU Usage"
+            description: "Kafka container is using more than 70% CPU."
+
+        - alert: KafkaHighMemoryUsage
+          expr: container_memory_usage_bytes{container="kafka"} > 1.2e+10
+          for: 2m
+          annotations:
+            summary: "Kafka High Memory Usage"
+            description: "Kafka memory usage exceeded 12GB."
+
+        - alert: KafkaDiskUsageHigh
+          expr: container_fs_usage_bytes{container="kafka"} > 7e+10
+          for: 2m
+          annotations:
+            summary: "Kafka Disk Usage High"
+            description: "Kafka broker {{ $labels.instance }} is using more than 70GB disk space."
+##########################################################
 
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
