@@ -1,0 +1,157 @@
+{
+  "CustomAlerts": [
+    {
+      "metricType": "promQLQuery",
+      "metricName": "zookeeper-instances-down",
+      "description": "Zookeeper instances are down in cluster with <suffix>",
+      "amwSuffix": "<azure-monitor-workspace-suffix>",
+      "aksSuffix": "<aks-cluster-suffix>",
+      "interval": "PT5M",
+      "rules": [
+        {
+          "alert": "zookeeper-instances-down",
+          "severity": "3",
+          "alertDescription": "Less than 4 Zookeeper instances are up",
+          "for": "PT10M",
+          "expression": "count(up{job='zookeeper-uat'} == 1) < 4"
+        }
+      ]
+    },
+    {
+      "metricType": "promQLQuery",
+      "metricName": "producer-record-errors",
+      "description": "Kafka producer record errors detected in cluster with <suffix>",
+      "amwSuffix": "<azure-monitor-workspace-suffix>",
+      "aksSuffix": "<aks-cluster-suffix>",
+      "interval": "PT5M",
+      "rules": [
+        {
+          "alert": "producer-record-errors",
+          "severity": "3",
+          "alertDescription": "Kafka producer record error count is greater than 0",
+          "for": "PT10M",
+          "expression": "sum by(client_id) (kafka_producer_producer_metrics_record_error_total) > 0"
+        }
+      ]
+    },
+    {
+      "metricType": "promQLQuery",
+      "metricName": "producer-retry-rate",
+      "description": "Kafka producer retry rate detected in cluster with <suffix>",
+      "amwSuffix": "<azure-monitor-workspace-suffix>",
+      "aksSuffix": "<aks-cluster-suffix>",
+      "interval": "PT5M",
+      "rules": [
+        {
+          "alert": "producer-retry-rate",
+          "severity": "3",
+          "alertDescription": "Kafka producer retry rate is greater than 0",
+          "for": "PT10M",
+          "expression": "sum by(client_id) (kafka_producer_producer_metrics_record_retry_rate) > 0"
+        }
+      ]
+    },
+    {
+      "metricType": "promQLQuery",
+      "metricName": "consumer-lag",
+      "description": "Kafka consumer lag is high in cluster with <suffix>",
+      "amwSuffix": "<azure-monitor-workspace-suffix>",
+      "aksSuffix": "<aks-cluster-suffix>",
+      "interval": "PT5M",
+      "rules": [
+        {
+          "alert": "consumer-lag",
+          "severity": "3",
+          "alertDescription": "Consumer records lag is greater than 100",
+          "for": "PT10M",
+          "expression": "kafka_consumer_consumer_fetch_manager_metrics_records_lag_avg > 100"
+        }
+      ]
+    },
+    {
+      "metricType": "promQLQuery",
+      "metricName": "consumer-fetch-rate-low",
+      "description": "Kafka consumer fetch rate is low in cluster with <suffix>",
+      "amwSuffix": "<azure-monitor-workspace-suffix>",
+      "aksSuffix": "<aks-cluster-suffix>",
+      "interval": "PT5M",
+      "rules": [
+        {
+          "alert": "consumer-fetch-rate-low",
+          "severity": "3",
+          "alertDescription": "Consumer fetch rate is below 1",
+          "for": "PT10M",
+          "expression": "sum by(client_id) (kafka_consumer_consumer_fetch_manager_metrics_fetch_rate) < 1"
+        }
+      ]
+    },
+    {
+      "metricType": "promQLQuery",
+      "metricName": "active-controller-count",
+      "description": "Kafka controller count issue in cluster with <suffix>",
+      "amwSuffix": "<azure-monitor-workspace-suffix>",
+      "aksSuffix": "<aks-cluster-suffix>",
+      "interval": "PT5M",
+      "rules": [
+        {
+          "alert": "active-controller-count",
+          "severity": "3",
+          "alertDescription": "Kafka controller count is not equal to 1",
+          "for": "PT10M",
+          "expression": "count(kafka_controller_kafkacontroller_activecontrollercount) != 1"
+        }
+      ]
+    },
+    {
+      "metricType": "promQLQuery",
+      "metricName": "under-replicated-partitions",
+      "description": "Kafka under-replicated partitions detected in cluster with <suffix>",
+      "amwSuffix": "<azure-monitor-workspace-suffix>",
+      "aksSuffix": "<aks-cluster-suffix>",
+      "interval": "PT5M",
+      "rules": [
+        {
+          "alert": "under-replicated-partitions",
+          "severity": "3",
+          "alertDescription": "Kafka under-replicated partitions count is greater than 0",
+          "for": "PT10M",
+          "expression": "kafka_server_replicamanager_underreplicatedpartitions > 0"
+        }
+      ]
+    },
+    {
+      "metricType": "promQLQuery",
+      "metricName": "offline-partitions",
+      "description": "Kafka offline partitions detected in cluster with <suffix>",
+      "amwSuffix": "<azure-monitor-workspace-suffix>",
+      "aksSuffix": "<aks-cluster-suffix>",
+      "interval": "PT5M",
+      "rules": [
+        {
+          "alert": "offline-partitions",
+          "severity": "3",
+          "alertDescription": "Kafka offline partitions count is greater than 0",
+          "for": "PT10M",
+          "expression": "count(kafka_controller_offlinepartitionscount) > 0"
+        }
+      ]
+    },
+    {
+      "metricType": "promQLQuery",
+      "metricName": "request-handler-idle",
+      "description": "Kafka request handler idle percent too low in cluster with <suffix>",
+      "amwSuffix": "<azure-monitor-workspace-suffix>",
+      "aksSuffix": "<aks-cluster-suffix>",
+      "interval": "PT5M",
+      "rules": [
+        {
+          "alert": "request-handler-idle",
+          "severity": "3",
+          "alertDescription": "Kafka request handler idle percent is below 40%",
+          "for": "PT10M",
+          "expression": "avg(kafka_server_kafkarequesthandlerpool_requesthandleravgidlepercent) < 0.4"
+        }
+      ]
+    }
+  ]
+}
