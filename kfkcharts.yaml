@@ -1,0 +1,106 @@
+apiVersion: v2
+name: kafka-monitoring
+version: 0.1.0
+description: A Helm chart to expose Kafka metrics and configure monitoring
+
+dependencies:
+  - name: kafka-service
+    version: 0.1.0
+    repository: "file://charts/kafka-service"
+  - name: monitoring-service
+    version: 0.1.0
+    repository: "file://charts/monitoring-service"
+---
+# values.yaml
+kafka-service:
+  service:
+    name: kafka-metrics-service
+    namespace: kafka
+    port: 9092
+    targetPort: 9092
+    type: ClusterIP
+
+monitoring-service:
+  serviceMonitor:
+    name: kafka-metrics-monitor
+    namespace: kafka
+    serviceName: kafka-metrics-service
+    port: 9092
+    metricsPath: /metrics
+---
+# charts/kafka-service/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.service.name }}
+  namespace: {{ .Values.service.namespace }}
+  labels:
+    app: kafka
+spec:
+  selector:
+    app: kafka
+  ports:
+    - name: metrics
+      protocol: TCP
+      port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+  type: {{ .Values.service.type }}
+---
+# charts/monitoring-service/templates/servicemonitor.yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Values.serviceMonitor.name }}
+  namespace: {{ .Values.serviceMonitor.namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: kafka
+  namespaceSelector:
+    matchNames:
+      - {{ .Values.serviceMonitor.namespace }}
+  endpoints:
+    - port: metrics
+      path: {{ .Values.serviceMonitor.metricsPath }}
+
+
+
+#############
+
+Now, the Helm chart supports multiple services instead of just Kafka. You can deploy it for different services by specifying their details in values.yaml.
+
+How to Use for Any Service
+Modify values.yaml:
+yaml
+Copy
+Edit
+service-exposure:
+  service:
+    name: my-app-metrics
+    namespace: my-namespace
+    port: 8080
+    targetPort: 8080
+    type: ClusterIP
+    appLabel: my-app
+
+monitoring-service:
+  serviceMonitor:
+    name: my-app-monitor
+    namespace: my-namespace
+    serviceName: my-app-metrics
+    port: 8080
+    metricsPath: /metrics
+    appLabel: my-app
+Deploy using Helm:
+sh
+Copy
+Edit
+helm install my-app-monitoring ./monitoring-stack -f values.yaml
+Now, you can dynamically configure it for any service by updating values.yaml. Let me know if you need further refinements! 🚀
+
+
+
+
+
+
+
